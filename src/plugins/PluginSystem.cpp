@@ -1,5 +1,6 @@
 #include "PluginSystem.hpp"
 
+#include <cstring>
 #include <dlfcn.h>
 #include <ranges>
 #include "../config/ConfigManager.hpp"
@@ -9,6 +10,7 @@
 #include "../managers/eventLoop/EventLoopManager.hpp"
 #include "../managers/permissions/DynamicPermissionManager.hpp"
 #include "../debug/HyprNotificationOverlay.hpp"
+#include "plugins/PluginAPI.hpp"
 
 CPluginSystem::CPluginSystem() {
     g_pFunctionHookSystem = makeUnique<CHookSystem>();
@@ -99,13 +101,15 @@ std::expected<CPlugin*, std::string> CPluginSystem::loadPluginInternal(const std
         return std::unexpected(std::format("Plugin {} could not be loaded: {}", path, "missing apiver/init func"));
     }
 
-    const std::string PLUGINAPIVER = apiVerFunc();
+    const SBuildVersions* PLUGINAPIVER = apiVerFunc();
 
-    if (PLUGINAPIVER != HYPRLAND_API_VERSION) {
-        Debug::log(ERR, " [PluginSystem] Plugin {} could not be loaded. (API version mismatch)", path);
+    if (isPluginOutdated(PLUGINAPIVER)) {
+        const std::string DETAILS = getVersionMismatchDetails(PLUGINAPIVER);
+        Debug::log(ERR, " [PluginSystem] Plugin {} could not be loaded. (API version mismatch)\n{}", path, DETAILS);
+        Debug::log(ERR, "{}", DETAILS);
         dlclose(MODULE);
         m_loadedPlugins.pop_back();
-        return std::unexpected(std::format("Plugin {} could not be loaded: {}", path, "API version mismatch"));
+        return std::unexpected(std::format("Plugin {} could not be loaded: API version mismatch.\n{}", path, DETAILS));
     }
 
     PLUGIN_DESCRIPTION_INFO PLUGINDATA;
@@ -268,4 +272,28 @@ void CPluginSystem::sigGetPlugins(CPlugin** data, size_t len) {
     for (size_t i = 0; i < std::min(m_loadedPlugins.size(), len); i++) {
         data[i] = m_loadedPlugins[i].get();
     }
+}
+
+bool CPluginSystem::isPluginOutdated(const SBuildVersions* plugin) {
+    return std::strcmp(plugin->hyprland, buildVersions.hyprland) != 0 || std::strcmp(plugin->aquamarine, buildVersions.aquamarine) != 0 ||
+        std::strcmp(plugin->hyprlang, buildVersions.hyprlang) != 0 || std::strcmp(plugin->hyprutils, buildVersions.hyprutils) != 0 ||
+        std::strcmp(plugin->hyprcursor, buildVersions.hyprcursor) != 0 || std::strcmp(plugin->hyprgraphics, buildVersions.hyprgraphics) != 0;
+}
+
+std::string CPluginSystem::getVersionMismatchDetails(const SBuildVersions* plugin) {
+    std::string out;
+
+    auto        check = [&](const char* name, const char* a, const char* b) {
+        if (std::strcmp(a, b) != 0)
+            out += std::format("  {}: plugin {}, core {}\n", name, a, b);
+    };
+
+    check("Hyprland", plugin->hyprland, buildVersions.hyprland);
+    check("Aquamarine", plugin->aquamarine, buildVersions.aquamarine);
+    check("Hyprlang", plugin->hyprlang, buildVersions.hyprlang);
+    check("Hyprutils", plugin->hyprutils, buildVersions.hyprutils);
+    check("Hyprcursor", plugin->hyprcursor, buildVersions.hyprcursor);
+    check("Hyprgraphics", plugin->hyprgraphics, buildVersions.hyprgraphics);
+
+    return out;
 }

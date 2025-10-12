@@ -22,8 +22,8 @@ using namespace Hyprutils::String;
 #include "globals.hpp"
 
 // Do NOT change this function.
-APICALL EXPORT std::string PLUGIN_API_VERSION() {
-    return HYPRLAND_API_VERSION;
+APICALL EXPORT const SBuildVersions* PLUGIN_API_VERSION() {
+    return &buildVersions;
 }
 
 static SDispatchResult test(std::string in) {

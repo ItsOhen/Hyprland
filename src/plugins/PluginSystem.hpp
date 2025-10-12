@@ -43,6 +43,9 @@ class CPluginSystem {
     size_t                 pluginCount();
     void                   sigGetPlugins(CPlugin** data, size_t len);
 
+    bool                   isPluginOutdated(const SBuildVersions* plugin);
+    std::string            getVersionMismatchDetails(const SBuildVersions* plugin);
+
     bool                   m_allowConfigVars = false;
 
   private:

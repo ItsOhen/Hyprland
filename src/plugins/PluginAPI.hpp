@@ -53,6 +53,24 @@ struct SVersionInfo {
     std::string commits;
 };
 
+struct SBuildVersions {
+    const char* hyprland;
+    const char* aquamarine;
+    const char* hyprlang;
+    const char* hyprutils;
+    const char* hyprcursor;
+    const char* hyprgraphics;
+};
+
+constexpr SBuildVersions buildVersions = {
+    HYPRLAND_API_VERSION,
+    AQUAMARINE_VERSION,
+    HYPRLANG_VERSION,
+    HYPRUTILS_VERSION,
+    HYPRCURSOR_VERSION,
+    HYPRGRAPHICS_VERSION
+};
+
 #define APICALL extern "C"
 #define EXPORT  __attribute__((visibility("default")))
 #define REQUIRED
@@ -83,7 +101,7 @@ class CWindow;
 
     This function should not be modified, see the example plugin.
 */
-using PPLUGIN_API_VERSION_FUNC = REQUIRED std::string (*)();
+using PPLUGIN_API_VERSION_FUNC = REQUIRED const SBuildVersions* (*)();
 #define PLUGIN_API_VERSION          pluginAPIVersion
 #define PLUGIN_API_VERSION_FUNC_STR "pluginAPIVersion"
 
