@@ -275,7 +275,7 @@ void CPluginSystem::sigGetPlugins(CPlugin** data, size_t len) {
 }
 
 bool CPluginSystem::isPluginOutdated(const SBuildVersions* plugin) {
-    return std::strcmp(plugin->hyprland, buildVersions.hyprland) != 0 || std::strcmp(plugin->aquamarine, buildVersions.aquamarine) != 0 ||
+    return std::strcmp(plugin->githash, buildVersions.githash) != 0 || std::strcmp(plugin->hyprlandAPI, buildVersions.hyprlandAPI) != 0 ||
         std::strcmp(plugin->hyprlang, buildVersions.hyprlang) != 0 || std::strcmp(plugin->hyprutils, buildVersions.hyprutils) != 0 ||
         std::strcmp(plugin->hyprcursor, buildVersions.hyprcursor) != 0 || std::strcmp(plugin->hyprgraphics, buildVersions.hyprgraphics) != 0;
 }
@@ -288,7 +288,8 @@ std::string CPluginSystem::getVersionMismatchDetails(const SBuildVersions* plugi
             out += std::format("  {}: plugin {}, core {}\n", name, a, b);
     };
 
-    check("Hyprland", plugin->hyprland, buildVersions.hyprland);
+    check("Hyprland commit", plugin->githash, buildVersions.githash);
+    check("HyprlandAPI", plugin->hyprlandAPI, buildVersions.hyprlandAPI);
     check("Aquamarine", plugin->aquamarine, buildVersions.aquamarine);
     check("Hyprlang", plugin->hyprlang, buildVersions.hyprlang);
     check("Hyprutils", plugin->hyprutils, buildVersions.hyprutils);

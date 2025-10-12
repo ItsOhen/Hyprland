@@ -54,7 +54,8 @@ struct SVersionInfo {
 };
 
 struct SBuildVersions {
-    const char* hyprland;
+    const char* githash;
+    const char* hyprlandAPI;
     const char* aquamarine;
     const char* hyprlang;
     const char* hyprutils;
@@ -62,14 +63,7 @@ struct SBuildVersions {
     const char* hyprgraphics;
 };
 
-constexpr SBuildVersions buildVersions = {
-    HYPRLAND_API_VERSION,
-    AQUAMARINE_VERSION,
-    HYPRLANG_VERSION,
-    HYPRUTILS_VERSION,
-    HYPRCURSOR_VERSION,
-    HYPRGRAPHICS_VERSION
-};
+constexpr SBuildVersions buildVersions = {GIT_COMMIT_HASH, HYPRLAND_API_VERSION, AQUAMARINE_VERSION, HYPRLANG_VERSION, HYPRUTILS_VERSION, HYPRCURSOR_VERSION, HYPRGRAPHICS_VERSION};
 
 #define APICALL extern "C"
 #define EXPORT  __attribute__((visibility("default")))
