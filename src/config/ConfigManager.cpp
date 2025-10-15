@@ -522,6 +522,7 @@ CConfigManager::CConfigManager() {
     registerConfigVar("misc:anr_missed_pings", Hyprlang::INT{5});
     registerConfigVar("misc:screencopy_force_8b", Hyprlang::INT{1});
     registerConfigVar("misc:disable_scale_notification", Hyprlang::INT{0});
+    registerConfigVar("misc:size_limits_tiled", Hyprlang::INT{0});
 
     registerConfigVar("group:insert_after_current", Hyprlang::INT{1});
     registerConfigVar("group:focus_removed_window", Hyprlang::INT{1});
@@ -750,6 +751,7 @@ CConfigManager::CConfigManager() {
     registerConfigVar("cursor:default_monitor", {STRVAL_EMPTY});
     registerConfigVar("cursor:zoom_factor", {1.f});
     registerConfigVar("cursor:zoom_rigid", Hyprlang::INT{0});
+    registerConfigVar("cursor:zoom_disable_aa", Hyprlang::INT{0});
     registerConfigVar("cursor:enable_hyprcursor", Hyprlang::INT{1});
     registerConfigVar("cursor:sync_gsettings_theme", Hyprlang::INT{1});
     registerConfigVar("cursor:hide_on_key_press", Hyprlang::INT{0});
@@ -1558,6 +1560,11 @@ std::vector<SP<CWindowRule>> CConfigManager::getMatchingRules(PHLWINDOW pWindow,
 
                 if (rule->m_group != -1) {
                     if (rule->m_group != isGrouped)
+                        continue;
+                }
+
+                if (rule->m_modal != -1) {
+                    if (rule->m_modal != pWindow->isModal())
                         continue;
                 }
 
@@ -2734,6 +2741,8 @@ std::optional<std::string> CConfigManager::handleWindowRule(const std::string& c
             set |= (rule->m_focus = (v == "1"), true);
         if (auto v = get("group"); !v.empty())
             set |= (rule->m_group = (v == "1"), true);
+        if (auto v = get("modal"); !v.empty())
+            set |= (rule->m_modal = (v == "1"), true);
 
         if (auto v = get("fullscreenstate"); !v.empty())
             set |= (rule->m_fullscreenState = v, true);
@@ -2795,6 +2804,8 @@ std::optional<std::string> CConfigManager::handleWindowRule(const std::string& c
                 if (!rule->m_contentType.empty() && rule->m_contentType != other->m_contentType)
                     return false;
                 if (rule->m_group != -1 && rule->m_group != other->m_group)
+                    return false;
+                if (rule->m_modal != -1 && rule->m_modal != other->m_modal)
                     return false;
                 return true;
             });

@@ -1339,6 +1339,12 @@ inline static const std::vector<SConfigOptionDescription> CONFIG_OPTIONS = {
         .type        = CONFIG_OPTION_BOOL,
         .data        = SConfigOptionDescription::SBoolData{false},
     },
+    SConfigOptionDescription{
+        .value       = "misc:size_limits_tiled",
+        .description = "whether to apply minsize and maxsize rules to tiled windows",
+        .type        = CONFIG_OPTION_BOOL,
+        .data        = SConfigOptionDescription::SBoolData{false},
+    },
 
     /*
      * binds:
@@ -1618,6 +1624,12 @@ inline static const std::vector<SConfigOptionDescription> CONFIG_OPTIONS = {
     SConfigOptionDescription{
         .value       = "cursor:zoom_rigid",
         .description = "whether the zoom should follow the cursor rigidly (cursor is always centered if it can be) or loosely",
+        .type        = CONFIG_OPTION_BOOL,
+        .data        = SConfigOptionDescription::SBoolData{false},
+    },
+    SConfigOptionDescription{
+        .value       = "cursor:zoom_disable_aa",
+        .description = "If enabled, when zooming, no antialiasing will be used (zoom will be pixelated)",
         .type        = CONFIG_OPTION_BOOL,
         .data        = SConfigOptionDescription::SBoolData{false},
     },
