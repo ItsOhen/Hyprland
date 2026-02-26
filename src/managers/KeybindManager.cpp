@@ -915,13 +915,13 @@ bool CKeybindManager::handleInternalKeybinds(xkb_keysym_t keysym) {
 
 // Dispatchers
 SDispatchResult CKeybindManager::spawn(std::string args) {
-    const uint64_t PROC = spawnWithRules(args, nullptr);
-    if (PROC == UINT64_MAX)
+    const auto PROC = spawnWithRules(args, nullptr);
+    if (!PROC.has_value())
         return {.success = false, .error = std::format("Failed to start process. No closing bracket in exec rule. {}", args)};
-    return {.success = PROC > 0, .error = std::format("Failed to start process {}", args)};
+    return {.success = PROC.value() > 0, .error = std::format("Failed to start process {}", args)};
 }
 
-uint64_t CKeybindManager::spawnWithRules(std::string args, PHLWORKSPACE pInitialWorkspace) {
+std::optional<uint64_t> CKeybindManager::spawnWithRules(std::string args, PHLWORKSPACE pInitialWorkspace) {
 
     args = trim(args);
 
@@ -931,7 +931,7 @@ uint64_t CKeybindManager::spawnWithRules(std::string args, PHLWORKSPACE pInitial
         // we have exec rules
         const auto end = args.find_first_of(']');
         if (end == std::string::npos)
-            return UINT64_MAX;
+            return std::nullopt;
 
         RULES = args.substr(1, end - 1);
         args  = args.substr(end + 1);

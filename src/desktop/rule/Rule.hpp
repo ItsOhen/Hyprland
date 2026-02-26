@@ -78,7 +78,7 @@ namespace Desktop::Rule {
             bool            isExecRule       = false;
             bool            isExecPersistent = false;
             std::string     token;
-            uint64_t        pid;
+            uint64_t        pid = 0;
             Time::steady_tp expiresAt;
         } m_execData;
     };
