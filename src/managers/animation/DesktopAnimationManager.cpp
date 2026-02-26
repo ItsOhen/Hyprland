@@ -245,11 +245,8 @@ void CDesktopAnimationManager::startAnimation(PHLWORKSPACE ws, eAnimationType ty
     static auto PWORKSPACEGAP = CConfigValue<Hyprlang::INT>("general:gaps_workspaces");
     const auto  PMONITOR      = ws->m_monitor.lock();
     const auto  ANIMSTYLE     = style.value_or(ws->m_alpha->getStyle());
-    if (ws->m_animationStyle.has_value()) {
-        Log::logger->log(Log::ERR, "Animation style for workspace {} is {}", ws->m_name, ws->m_animationStyle.value());
-    } else
-        Log::logger->log(Log::ERR, "No animation style for workspace {}", ws->m_name);
-    float movePerc = 100.f;
+
+    float       movePerc = 100.f;
     // inverted for some reason. TODO: fix the cause
     bool vert = ANIMSTYLE.starts_with("slidevert") || ANIMSTYLE.starts_with("slidefadevert");
 
