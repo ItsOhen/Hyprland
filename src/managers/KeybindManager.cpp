@@ -940,13 +940,14 @@ uint64_t CKeybindManager::spawnWithRules(std::string args, PHLWORKSPACE pInitial
     std::string execToken = "";
 
     if (!RULES.empty()) {
-        auto rule = Desktop::Rule::CWindowRule::buildFromExecString(std::move(RULES));
+        auto           rule = Desktop::Rule::CWindowRule::buildFromExecString(std::move(RULES));
 
-        execToken = rule->execToken();
+        const auto     TOKEN = g_pTokenManager->registerNewToken(nullptr, std::chrono::seconds(1));
 
-        const uint64_t PROC = spawnRawProc(args, pInitialWorkspace, execToken);
+        const uint64_t PROC = spawnRawProc(args, pInitialWorkspace, TOKEN);
+        rule->markAsExecRule(TOKEN, PROC, false /* TODO: could be nice. */);
+        rule->registerMatch(Desktop::Rule::RULE_PROP_EXEC_TOKEN, TOKEN);
         rule->registerMatch(Desktop::Rule::RULE_PROP_EXEC_PID, std::to_string(PROC));
-        rule->markAsExecRule(execToken, PROC, false /* TODO: could be nice. */);
         Desktop::Rule::ruleEngine()->registerRule(std::move(rule));
         Log::logger->log(Log::DEBUG, "Applied rule arguments for exec.");
         return PROC;

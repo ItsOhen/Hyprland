@@ -119,10 +119,8 @@ bool CWindowRule::matches(PHLWINDOW w, bool allowEnvLookup) {
                     if (m_matchEngines.at(RULE_PROP_EXEC_PID)->match(w->getPID()))
                         match = true;
                 }
-
                 if (!match)
                     return false;
-
                 break;
         }
     }
@@ -158,10 +156,6 @@ SP<CWindowRule> CWindowRule::buildFromExecString(std::string&& s) {
 
         wr->addEffect(*EFFECT, std::string{"1"});
     }
-
-    const auto TOKEN = g_pTokenManager->registerNewToken(nullptr, std::chrono::seconds(1));
-
-    wr->registerMatch(RULE_PROP_EXEC_TOKEN, TOKEN);
 
     return wr;
 }
