@@ -1672,6 +1672,8 @@ SWorkspaceRule CConfigManager::mergeWorkspaceRules(const SWorkspaceRule& rule1, 
             mergedRule.layoutopts[layoutopt.first] = layoutopt.second;
         }
     }
+    if (rule2.animationStyle.has_value())
+        mergedRule.animationStyle = rule2.animationStyle;
     return mergedRule;
 }
 
@@ -1912,7 +1914,6 @@ PHLMONITOR CConfigManager::getBoundMonitorForWS(const std::string& wsname) {
 std::string CConfigManager::getBoundMonitorStringForWS(const std::string& wsname) {
     for (auto const& wr : m_workspaceRules) {
         const auto WSNAME = wr.workspaceName.starts_with("name:") ? wr.workspaceName.substr(5) : wr.workspaceName;
-
         if (WSNAME == wsname)
             return wr.monitor;
     }
@@ -2738,6 +2739,9 @@ std::optional<std::string> CConfigManager::handleWorkspaceRules(const std::strin
         } else if ((delim = rule.find("layout:")) != std::string::npos) {
             std::string layout = rule.substr(delim + 7);
             wsRule.layout      = std::move(layout);
+        } else if ((delim = rule.find("animation:")) != std::string::npos) {
+            std::string animationStyle = rule.substr(delim + 10);
+            wsRule.animationStyle      = std::move(animationStyle);
         }
 
         return {};

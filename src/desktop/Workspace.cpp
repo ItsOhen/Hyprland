@@ -36,6 +36,10 @@ void CWorkspace::init(PHLWORKSPACE self) {
     const auto RULEFORTHIS = g_pConfigManager->getWorkspaceRuleFor(self);
     if (RULEFORTHIS.defaultName.has_value())
         m_name = RULEFORTHIS.defaultName.value();
+    if (RULEFORTHIS.animationStyle.has_value()) {
+        Log::logger->log(Log::ERR, "[{}] Animation style for workspace {} is {}", __FUNCTION__, m_name, RULEFORTHIS.animationStyle.value());
+        m_animationStyle = RULEFORTHIS.animationStyle.value();
+    }
 
     m_focusedWindowHook = Event::bus()->m_events.window.close.listen([this](PHLWINDOW pWindow) {
         if (pWindow == m_lastFocusedWindow.lock())
