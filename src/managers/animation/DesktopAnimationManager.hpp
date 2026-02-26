@@ -3,6 +3,7 @@
 #include "../../helpers/memory/Memory.hpp"
 #include "../../desktop/DesktopTypes.hpp"
 #include <string>
+#include <optional>
 
 class CDesktopAnimationManager {
   public:
