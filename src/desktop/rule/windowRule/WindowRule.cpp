@@ -104,20 +104,25 @@ bool CWindowRule::matches(PHLWINDOW w, bool allowEnvLookup) {
                 if (!w->xdgTag().has_value() || !engine->match(*w->xdgTag()))
                     return false;
                 break;
+
             case RULE_PROP_EXEC_TOKEN:
                 // this is only allowed on static rules, we don't need it on dynamic plus it's expensive
                 if (!allowEnvLookup)
                     break;
-
-                const auto ENV = w->getEnv();
-                if (ENV.contains(EXEC_RULE_ENV_NAME)) {
-                    const auto TKN = ENV.at(EXEC_RULE_ENV_NAME);
-                    if (!engine->match(TKN))
-                        return false;
-                    break;
+                {
+                    const auto ENV = w->getEnv();
+                    if (ENV.contains(EXEC_RULE_ENV_NAME)) {
+                        const auto TKN = ENV.at(EXEC_RULE_ENV_NAME);
+                        if (!engine->match(TKN))
+                            return false;
+                        break;
+                    }
                 }
-
-                return false;
+                break;
+            case RULE_PROP_EXEC_PID:
+                if (!engine->match(w->getPID()))
+                    return false;
+                break;
         }
     }
 
@@ -155,7 +160,6 @@ SP<CWindowRule> CWindowRule::buildFromExecString(std::string&& s) {
 
     const auto TOKEN = g_pTokenManager->registerNewToken(nullptr, std::chrono::seconds(1));
 
-    wr->markAsExecRule(TOKEN, false /* TODO: could be nice. */);
     wr->registerMatch(RULE_PROP_EXEC_TOKEN, TOKEN);
 
     return wr;

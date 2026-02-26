@@ -916,6 +916,8 @@ bool CKeybindManager::handleInternalKeybinds(xkb_keysym_t keysym) {
 // Dispatchers
 SDispatchResult CKeybindManager::spawn(std::string args) {
     const uint64_t PROC = spawnWithRules(args, nullptr);
+    if (PROC == UINT64_MAX)
+        return {.success = false, .error = std::format("Failed to start process. No closing bracket in exec rule. {}", args)};
     return {.success = PROC > 0, .error = std::format("Failed to start process {}", args)};
 }
 
@@ -927,8 +929,12 @@ uint64_t CKeybindManager::spawnWithRules(std::string args, PHLWORKSPACE pInitial
 
     if (args[0] == '[') {
         // we have exec rules
-        RULES = args.substr(1, args.substr(1).find_first_of(']'));
-        args  = args.substr(args.find_first_of(']') + 1);
+        const auto end = args.find_first_of(']');
+        if (end == std::string::npos)
+            return UINT64_MAX;
+
+        RULES = args.substr(1, end - 1);
+        args  = args.substr(end + 1);
     }
 
     std::string execToken = "";
@@ -938,11 +944,13 @@ uint64_t CKeybindManager::spawnWithRules(std::string args, PHLWORKSPACE pInitial
 
         execToken = rule->execToken();
 
+        const uint64_t PROC = spawnRawProc(args, pInitialWorkspace, execToken);
+        rule->registerMatch(Desktop::Rule::RULE_PROP_EXEC_PID, std::to_string(PROC));
+        rule->markAsExecRule(execToken, PROC, false /* TODO: could be nice. */);
         Desktop::Rule::ruleEngine()->registerRule(std::move(rule));
-
         Log::logger->log(Log::DEBUG, "Applied rule arguments for exec.");
+        return PROC;
     }
-
     const uint64_t PROC = spawnRawProc(args, pInitialWorkspace, execToken);
 
     return PROC;
