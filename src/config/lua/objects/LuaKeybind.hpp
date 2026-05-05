@@ -8,5 +8,8 @@ namespace Config::Lua::Objects {
       public:
         void        setup(lua_State* L) override;
         static void push(lua_State* L, const SP<SKeybind>& keybind);
+
+      public:
+        static std::shared_ptr<LuaSchema<SP<SKeybind>>> s_schema;
     };
 }

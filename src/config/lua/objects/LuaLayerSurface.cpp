@@ -6,10 +6,14 @@
 
 #include <format>
 #include <string_view>
+#include <memory>
 
 using namespace Config::Lua;
 
 static constexpr const char* MT = "HL.LayerSurface";
+
+// Global schema for LuaLayerSurface (initialized in setup)
+std::shared_ptr<Objects::LuaSchema<PHLLS>> Objects::CLuaLayerSurface::s_schema;
 
 //
 static int layerSurfaceEq(lua_State* L) {
@@ -43,42 +47,95 @@ static int layerSurfaceIndex(lua_State* L) {
 
     const std::string_view key = luaL_checkstring(L, 2);
 
-    if (key == "address")
+    if (!Objects::CLuaLayerSurface::s_schema || !Objects::CLuaLayerSurface::s_schema->hasProperty(std::string(key))) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    return Objects::CLuaLayerSurface::s_schema->getProperty(L, std::string(key), ls);
+}
+
+static int layerSurfacePairs(lua_State* L) {
+    return Objects::createPairs<PHLLS, PHLLSREF>(
+        L, Objects::CLuaLayerSurface::s_schema.get(), MT,
+        [](PHLLSREF* ref) { return ref->lock(); });
+}
+
+void Objects::CLuaLayerSurface::setup(lua_State* L) {
+    // Create and populate the schema
+    Objects::CLuaLayerSurface::s_schema = std::make_shared<LuaSchema<PHLLS>>();
+
+    Objects::CLuaLayerSurface::s_schema->addProperty("address", [](lua_State* L, PHLLS ls) {
         lua_pushstring(L, std::format("0x{:x}", reinterpret_cast<uintptr_t>(ls.get())).c_str());
-    else if (key == "x")
+        return 1;
+    });
+
+    Objects::CLuaLayerSurface::s_schema->addProperty("x", [](lua_State* L, PHLLS ls) {
         lua_pushinteger(L, ls->m_geometry.x);
-    else if (key == "y")
+        return 1;
+    });
+
+    Objects::CLuaLayerSurface::s_schema->addProperty("y", [](lua_State* L, PHLLS ls) {
         lua_pushinteger(L, ls->m_geometry.y);
-    else if (key == "w")
+        return 1;
+    });
+
+    Objects::CLuaLayerSurface::s_schema->addProperty("w", [](lua_State* L, PHLLS ls) {
         lua_pushinteger(L, ls->m_geometry.width);
-    else if (key == "h")
+        return 1;
+    });
+
+    Objects::CLuaLayerSurface::s_schema->addProperty("h", [](lua_State* L, PHLLS ls) {
         lua_pushinteger(L, ls->m_geometry.height);
-    else if (key == "namespace")
+        return 1;
+    });
+
+    Objects::CLuaLayerSurface::s_schema->addProperty("namespace", [](lua_State* L, PHLLS ls) {
         lua_pushstring(L, ls->m_namespace.c_str());
-    else if (key == "pid")
+        return 1;
+    });
+
+    Objects::CLuaLayerSurface::s_schema->addProperty("pid", [](lua_State* L, PHLLS ls) {
         lua_pushinteger(L, sc<lua_Integer>(ls->getPID()));
-    else if (key == "monitor") {
+        return 1;
+    });
+
+    Objects::CLuaLayerSurface::s_schema->addProperty("monitor", [](lua_State* L, PHLLS ls) {
         const auto mon = ls->m_monitor.lock();
         if (mon)
             Objects::CLuaMonitor::push(L, mon);
         else
             lua_pushnil(L);
-    } else if (key == "mapped")
+        return 1;
+    });
+
+    Objects::CLuaLayerSurface::s_schema->addProperty("mapped", [](lua_State* L, PHLLS ls) {
         lua_pushboolean(L, ls->m_mapped);
-    else if (key == "layer")
+        return 1;
+    });
+
+    Objects::CLuaLayerSurface::s_schema->addProperty("layer", [](lua_State* L, PHLLS ls) {
         lua_pushinteger(L, sc<lua_Integer>(ls->m_layer));
-    else if (key == "interactivity")
+        return 1;
+    });
+
+    Objects::CLuaLayerSurface::s_schema->addProperty("interactivity", [](lua_State* L, PHLLS ls) {
         lua_pushinteger(L, sc<lua_Integer>(ls->m_interactivity));
-    else if (key == "above_fullscreen")
+        return 1;
+    });
+
+    Objects::CLuaLayerSurface::s_schema->addProperty("above_fullscreen", [](lua_State* L, PHLLS ls) {
         lua_pushboolean(L, ls->m_aboveFullscreen);
-    else
-        lua_pushnil(L);
+        return 1;
+    });
 
-    return 1;
-}
-
-void Objects::CLuaLayerSurface::setup(lua_State* L) {
-    registerMetatable(L, MT, layerSurfaceIndex, gcRef<PHLLSREF>, layerSurfaceEq, layerSurfaceToString);
+    registerMetatable(L, MT, {
+        {"__index",    layerSurfaceIndex},
+        {"__gc",       gcRef<PHLLSREF>},
+        {"__eq",       layerSurfaceEq},
+        {"__tostring", layerSurfaceToString},
+        {"__pairs",    layerSurfacePairs},
+    });
 }
 
 void Objects::CLuaLayerSurface::push(lua_State* L, PHLLS ls) {

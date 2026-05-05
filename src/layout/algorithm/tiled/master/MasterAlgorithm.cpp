@@ -568,7 +568,8 @@ Config::ErrorResult CMasterAlgorithm::layoutMsg(const std::string_view& sv) {
             return noTarget("no window");
 
         if (PWINDOW->layoutTarget()->floating()) {
-            Config::Actions::swapNext(true);
+            if (auto res = Config::Actions::swapNext(true); !res)
+                return std::unexpected(res.error());
             return {};
         }
 
@@ -585,7 +586,8 @@ Config::ErrorResult CMasterAlgorithm::layoutMsg(const std::string_view& sv) {
             return noTarget("no window");
 
         if (PWINDOW->layoutTarget()->floating()) {
-            Config::Actions::swapNext(false);
+            if (auto res = Config::Actions::swapNext(false); !res)
+                return std::unexpected(res.error());
             return {};
         }
 

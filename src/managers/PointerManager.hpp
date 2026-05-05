@@ -92,6 +92,7 @@ class CPointerManager {
     } m_events;
 
   private:
+    void handleDpmsOnActivity();
     void recheckPointerPosition();
     void onMonitorLayoutChange();
     void onMonitorDisconnect();

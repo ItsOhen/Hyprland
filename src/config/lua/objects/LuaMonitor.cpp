@@ -6,10 +6,14 @@
 #include "../../../desktop/state/FocusState.hpp"
 
 #include <string_view>
+#include <memory>
 
 using namespace Config::Lua;
 
 static constexpr const char* MT = "HL.Monitor";
+
+// Static member definition
+std::shared_ptr<Objects::LuaSchema<PHLMONITOR>> Objects::CLuaMonitor::s_schema;
 
 //
 static int monitorEq(lua_State* L) {
@@ -43,59 +47,137 @@ static int monitorIndex(lua_State* L) {
 
     const std::string_view key = luaL_checkstring(L, 2);
 
-    if (key == "id")
+    if (!Objects::CLuaMonitor::s_schema || !Objects::CLuaMonitor::s_schema->hasProperty(std::string(key))) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    return Objects::CLuaMonitor::s_schema->getProperty(L, std::string(key), mon);
+}
+
+static int monitorPairs(lua_State* L) {
+    return Objects::createPairs<PHLMONITOR, PHLMONITORREF>(
+        L, Objects::CLuaMonitor::s_schema.get(), MT,
+        [](PHLMONITORREF* ref) { return ref->lock(); });
+}
+
+void Objects::CLuaMonitor::setup(lua_State* L) {
+    // Create and populate the schema
+    Objects::CLuaMonitor::s_schema = std::make_shared<LuaSchema<PHLMONITOR>>();
+
+    Objects::CLuaMonitor::s_schema->addProperty("id", [](lua_State* L, PHLMONITOR mon) {
         lua_pushinteger(L, sc<lua_Integer>(mon->m_id));
-    else if (key == "name")
+        return 1;
+    });
+
+    Objects::CLuaMonitor::s_schema->addProperty("name", [](lua_State* L, PHLMONITOR mon) {
         lua_pushstring(L, mon->m_name.c_str());
-    else if (key == "description")
+        return 1;
+    });
+
+    Objects::CLuaMonitor::s_schema->addProperty("description", [](lua_State* L, PHLMONITOR mon) {
         lua_pushstring(L, mon->m_shortDescription.c_str());
-    else if (key == "width")
+        return 1;
+    });
+
+    Objects::CLuaMonitor::s_schema->addProperty("width", [](lua_State* L, PHLMONITOR mon) {
         lua_pushinteger(L, sc<int>(mon->m_pixelSize.x));
-    else if (key == "height")
+        return 1;
+    });
+
+    Objects::CLuaMonitor::s_schema->addProperty("height", [](lua_State* L, PHLMONITOR mon) {
         lua_pushinteger(L, sc<int>(mon->m_pixelSize.y));
-    else if (key == "physical_width")
+        return 1;
+    });
+
+    Objects::CLuaMonitor::s_schema->addProperty("physical_width", [](lua_State* L, PHLMONITOR mon) {
         lua_pushinteger(L, sc<int>(mon->m_output->physicalSize.x));
-    else if (key == "physical_height")
+        return 1;
+    });
+
+    Objects::CLuaMonitor::s_schema->addProperty("physical_height", [](lua_State* L, PHLMONITOR mon) {
         lua_pushinteger(L, sc<int>(mon->m_output->physicalSize.y));
-    else if (key == "refresh_rate")
+        return 1;
+    });
+
+    Objects::CLuaMonitor::s_schema->addProperty("refresh_rate", [](lua_State* L, PHLMONITOR mon) {
         lua_pushnumber(L, mon->m_refreshRate);
-    else if (key == "x")
+        return 1;
+    });
+        lua_pushnumber(L, mon->m_refreshRate);
+        return 1;
+    });
+
+    Objects::CLuaMonitor::s_schema->addProperty("x", [](lua_State* L, PHLMONITOR mon) {
         lua_pushinteger(L, sc<int>(mon->m_position.x));
-    else if (key == "y")
+        return 1;
+    });
+
+    Objects::CLuaMonitor::s_schema->addProperty("y", [](lua_State* L, PHLMONITOR mon) {
         lua_pushinteger(L, sc<int>(mon->m_position.y));
-    else if (key == "active_workspace") {
+        return 1;
+    });
+
+    Objects::CLuaMonitor::s_schema->addProperty("active_workspace", [](lua_State* L, PHLMONITOR mon) {
         if (mon->m_activeWorkspace)
             Objects::CLuaWorkspace::push(L, mon->m_activeWorkspace);
         else
             lua_pushnil(L);
-    } else if (key == "active_special_workspace") {
+        return 1;
+    });
+
+    Objects::CLuaMonitor::s_schema->addProperty("active_special_workspace", [](lua_State* L, PHLMONITOR mon) {
         if (mon->m_activeSpecialWorkspace)
             Objects::CLuaWorkspace::push(L, mon->m_activeSpecialWorkspace);
         else
             lua_pushnil(L);
-    } else if (key == "position") {
+        return 1;
+    });
+
+    Objects::CLuaMonitor::s_schema->addProperty("position", [](lua_State* L, PHLMONITOR mon) {
         lua_newtable(L);
         lua_pushinteger(L, sc<int>(mon->m_position.x));
         lua_setfield(L, -2, "x");
         lua_pushinteger(L, sc<int>(mon->m_position.y));
         lua_setfield(L, -2, "y");
-    } else if (key == "size") {
+        return 1;
+    });
+
+    Objects::CLuaMonitor::s_schema->addProperty("size", [](lua_State* L, PHLMONITOR mon) {
         lua_newtable(L);
         lua_pushinteger(L, sc<int>(mon->m_pixelSize.x));
         lua_setfield(L, -2, "width");
         lua_pushinteger(L, sc<int>(mon->m_pixelSize.y));
         lua_setfield(L, -2, "height");
-    } else if (key == "scale")
+        return 1;
+    });
+
+    Objects::CLuaMonitor::s_schema->addProperty("scale", [](lua_State* L, PHLMONITOR mon) {
         lua_pushnumber(L, mon->m_scale);
-    else if (key == "transform")
+        return 1;
+    });
+
+    Objects::CLuaMonitor::s_schema->addProperty("transform", [](lua_State* L, PHLMONITOR mon) {
         lua_pushinteger(L, sc<int>(mon->m_transform));
-    else if (key == "dpms_status")
+        return 1;
+    });
+
+    Objects::CLuaMonitor::s_schema->addProperty("dpms_status", [](lua_State* L, PHLMONITOR mon) {
         lua_pushboolean(L, mon->m_dpmsStatus);
-    else if (key == "vrr_active")
+        return 1;
+    });
+
+    Objects::CLuaMonitor::s_schema->addProperty("vrr_active", [](lua_State* L, PHLMONITOR mon) {
         lua_pushboolean(L, mon->m_vrrActive);
-    else if (key == "is_mirror")
+        return 1;
+    });
+
+    Objects::CLuaMonitor::s_schema->addProperty("is_mirror", [](lua_State* L, PHLMONITOR mon) {
         lua_pushboolean(L, mon->isMirror());
-    else if (key == "mirrors") {
+        return 1;
+    });
+
+    Objects::CLuaMonitor::s_schema->addProperty("mirrors", [](lua_State* L, PHLMONITOR mon) {
         lua_newtable(L);
 
         int i = 1;
@@ -107,28 +189,26 @@ static int monitorIndex(lua_State* L) {
             Objects::CLuaMonitor::push(L, mirror);
             lua_rawseti(L, -2, i++);
         }
-    } else if (key == "focused")
+        return 1;
+    });
+
+    Objects::CLuaMonitor::s_schema->addProperty("focused", [](lua_State* L, PHLMONITOR mon) {
         lua_pushboolean(L, mon == Desktop::focusState()->monitor());
-    else if (key == "cm")
+        return 1;
+    });
+
+    Objects::CLuaMonitor::s_schema->addProperty("cm", [](lua_State* L, PHLMONITOR mon) {
         lua_pushstring(L, NCMType::toString(mon->m_cmType).c_str());
-    else if (key == "reserved") {
-        lua_newtable(L);
-        lua_pushnumber(L, mon->m_reservedArea.top());
-        lua_setfield(L, -2, "top");
-        lua_pushnumber(L, mon->m_reservedArea.right());
-        lua_setfield(L, -2, "right");
-        lua_pushnumber(L, mon->m_reservedArea.bottom());
-        lua_setfield(L, -2, "bottom");
-        lua_pushnumber(L, mon->m_reservedArea.left());
-        lua_setfield(L, -2, "left");
-    } else
-        lua_pushnil(L);
+        return 1;
+    });
 
-    return 1;
-}
-
-void Objects::CLuaMonitor::setup(lua_State* L) {
-    registerMetatable(L, MT, monitorIndex, gcRef<PHLMONITORREF>, monitorEq, monitorToString);
+    registerMetatable(L, MT, {
+        {"__index",    monitorIndex},
+        {"__gc",       gcRef<PHLMONITORREF>},
+        {"__eq",       monitorEq},
+        {"__tostring", monitorToString},
+        {"__pairs",    monitorPairs},
+    });
 }
 
 void Objects::CLuaMonitor::push(lua_State* L, PHLMONITOR mon) {

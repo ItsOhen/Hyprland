@@ -9,5 +9,8 @@ namespace Config::Lua::Objects {
         void        setup(lua_State* L) override;
         static void push(lua_State* L, PHLWORKSPACE ws);
         static void push(lua_State* L, PHLWORKSPACEREF ws);
+
+      public:
+        static std::shared_ptr<LuaSchema<PHLWORKSPACE>> s_schema;
     };
 }

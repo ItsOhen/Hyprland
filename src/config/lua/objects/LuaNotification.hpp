@@ -8,5 +8,8 @@ namespace Config::Lua::Objects {
       public:
         void        setup(lua_State* L) override;
         static void push(lua_State* L, const SP<Notification::CNotification>& notification);
+
+      public:
+        static SP<LuaSchema<SP<Notification::CNotification>>> s_schema;
     };
 }

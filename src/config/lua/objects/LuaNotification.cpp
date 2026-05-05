@@ -7,13 +7,16 @@
 #include <cctype>
 #include <optional>
 #include <string_view>
+#include <memory>
 
 #include "../../shared/parserUtils/ParserUtils.hpp"
 
 using namespace Config;
 using namespace Config::Lua;
 
-static constexpr const char* MT = "HL.Notification";
+static constexpr const char*                            MT = "HL.Notification";
+
+SP<Objects::LuaSchema<SP<Notification::CNotification>>> Objects::CLuaNotification::s_schema;
 
 namespace {
     struct SNotificationRef {
@@ -327,50 +330,53 @@ static int notificationIndex(lua_State* L) {
     luaL_checkudata(L, 1, MT);
     const std::string_view key = luaL_checkstring(L, 2);
 
-    if (key == "pause")
-        lua_pushcfunction(L, notificationPause);
-    else if (key == "resume")
-        lua_pushcfunction(L, notificationResume);
-    else if (key == "set_paused")
-        lua_pushcfunction(L, notificationSetPaused);
-    else if (key == "is_paused")
-        lua_pushcfunction(L, notificationIsPaused);
-    else if (key == "set_text")
-        lua_pushcfunction(L, notificationSetText);
-    else if (key == "set_timeout")
-        lua_pushcfunction(L, notificationSetTimeout);
-    else if (key == "set_color")
-        lua_pushcfunction(L, notificationSetColor);
-    else if (key == "set_icon")
-        lua_pushcfunction(L, notificationSetIcon);
-    else if (key == "set_font_size")
-        lua_pushcfunction(L, notificationSetFontSize);
-    else if (key == "dismiss")
-        lua_pushcfunction(L, notificationDismiss);
-    else if (key == "get_text")
-        lua_pushcfunction(L, notificationGetText);
-    else if (key == "get_timeout")
-        lua_pushcfunction(L, notificationGetTimeout);
-    else if (key == "get_color")
-        lua_pushcfunction(L, notificationGetColor);
-    else if (key == "get_icon")
-        lua_pushcfunction(L, notificationGetIcon);
-    else if (key == "get_font_size")
-        lua_pushcfunction(L, notificationGetFontSize);
-    else if (key == "get_elapsed")
-        lua_pushcfunction(L, notificationGetElapsed);
-    else if (key == "get_elapsed_since_creation")
-        lua_pushcfunction(L, notificationGetElapsedSinceCreation);
-    else if (key == "is_alive")
-        lua_pushcfunction(L, notificationIsAlive);
-    else
+    if (!Objects::CLuaNotification::s_schema || !Objects::CLuaNotification::s_schema->has(std::string(key))) {
         lua_pushnil(L);
+        return 1;
+    }
 
+    if (Objects::CLuaNotification::s_schema->hasMethod(std::string(key)))
+        return Objects::CLuaNotification::s_schema->getMethod(L, std::string(key));
+
+    lua_pushnil(L);
     return 1;
 }
 
+static int notificationPairs(lua_State* L) {
+    return Objects::createPairs<SP<Notification::CNotification>, SNotificationRef>(L, Objects::CLuaNotification::s_schema.get(), MT,
+                                                                                   [](SNotificationRef* ref) { return ref->notification.lock(); });
+}
+
 void Objects::CLuaNotification::setup(lua_State* L) {
-    registerMetatable(L, MT, notificationIndex, notificationGC, notificationEq, notificationToString);
+    Objects::CLuaNotification::s_schema = makeShared<LuaSchema<SP<Notification::CNotification>>>();
+
+    Objects::CLuaNotification::s_schema->addMethod("pause", [](lua_State* L) { return notificationPause(L); });
+    Objects::CLuaNotification::s_schema->addMethod("resume", [](lua_State* L) { return notificationResume(L); });
+    Objects::CLuaNotification::s_schema->addMethod("set_paused", [](lua_State* L) { return notificationSetPaused(L); });
+    Objects::CLuaNotification::s_schema->addMethod("is_paused", [](lua_State* L) { return notificationIsPaused(L); });
+    Objects::CLuaNotification::s_schema->addMethod("set_text", [](lua_State* L) { return notificationSetText(L); });
+    Objects::CLuaNotification::s_schema->addMethod("get_text", [](lua_State* L) { return notificationGetText(L); });
+    Objects::CLuaNotification::s_schema->addMethod("set_timeout", [](lua_State* L) { return notificationSetTimeout(L); });
+    Objects::CLuaNotification::s_schema->addMethod("get_timeout", [](lua_State* L) { return notificationGetTimeout(L); });
+    Objects::CLuaNotification::s_schema->addMethod("set_color", [](lua_State* L) { return notificationSetColor(L); });
+    Objects::CLuaNotification::s_schema->addMethod("get_color", [](lua_State* L) { return notificationGetColor(L); });
+    Objects::CLuaNotification::s_schema->addMethod("set_icon", [](lua_State* L) { return notificationSetIcon(L); });
+    Objects::CLuaNotification::s_schema->addMethod("get_icon", [](lua_State* L) { return notificationGetIcon(L); });
+    Objects::CLuaNotification::s_schema->addMethod("set_font_size", [](lua_State* L) { return notificationSetFontSize(L); });
+    Objects::CLuaNotification::s_schema->addMethod("get_font_size", [](lua_State* L) { return notificationGetFontSize(L); });
+    Objects::CLuaNotification::s_schema->addMethod("dismiss", [](lua_State* L) { return notificationDismiss(L); });
+    Objects::CLuaNotification::s_schema->addMethod("get_elapsed", [](lua_State* L) { return notificationGetElapsed(L); });
+    Objects::CLuaNotification::s_schema->addMethod("get_elapsed_since_creation", [](lua_State* L) { return notificationGetElapsedSinceCreation(L); });
+    Objects::CLuaNotification::s_schema->addMethod("is_alive", [](lua_State* L) { return notificationIsAlive(L); });
+
+    registerMetatable(L, MT,
+                      {
+                          {"__index", notificationIndex},
+                          {"__gc", notificationGC},
+                          {"__eq", notificationEq},
+                          {"__tostring", notificationToString},
+                          {"__pairs", notificationPairs},
+                      });
 }
 
 void Objects::CLuaNotification::push(lua_State* L, const SP<Notification::CNotification>& notification) {

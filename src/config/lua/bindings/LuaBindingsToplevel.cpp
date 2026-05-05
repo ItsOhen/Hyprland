@@ -4,15 +4,16 @@
 #include "../objects/LuaEventSubscription.hpp"
 #include "../objects/LuaKeybind.hpp"
 #include "../objects/LuaTimer.hpp"
+#include "../objects/LuaProcessHandle.hpp"
 
 #include "../../supplementary/executor/Executor.hpp"
-
 #include "../../../devices/IKeyboard.hpp"
 #include "../../../managers/eventLoop/EventLoopManager.hpp"
 #include "../../../plugins/PluginSystem.hpp"
 
 #include <hyprutils/string/Numeric.hpp>
 #include <hyprutils/string/String.hpp>
+#include <hyprutils/string/VarList.hpp>
 #include <hyprutils/string/VarList.hpp>
 
 using namespace Config;
@@ -462,11 +463,51 @@ static int hlTimer(lua_State* L) {
     return 1;
 }
 
+static int hlAsyncExecCmd(lua_State* L) {
+    auto* mgr = sc<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
+    auto  cmd = Internal::argStr(L, 1);
+
+    if (cmd.empty())
+        return Internal::configError(L, "hl.async_exec_cmd: expected command as first argument");
+
+    if (!mgr || !mgr->m_processExecutor || !mgr->m_eventHandler)
+        return Internal::configError(L, "hl.async_exec_cmd: executor/event handler unavailable");
+
+    auto* handle = Objects::pushNewProcessHandle(L, cmd);
+
+    lua_pushvalue(L, -1);
+    int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+    lua_State* lua = L;
+
+    uint64_t processId = mgr->m_processExecutor->spawnAsync(cmd, 30000, [lua, ref](const Config::Lua::SProcessResult& result) {
+        const int stackTop = lua_gettop(lua);
+
+        lua_rawgeti(lua, LUA_REGISTRYINDEX, ref);
+        if (auto* h = Objects::toProcessHandle(lua, -1); h) {
+            h->isComplete = true;
+            h->result     = result;
+            h->processId  = result.processId;
+
+            if (auto* cfg = CConfigManager::fromLuaState(lua); cfg && cfg->m_eventHandler)
+                cfg->m_eventHandler->onProcessComplete(result.processId, std::any(result));
+        }
+
+        luaL_unref(lua, LUA_REGISTRYINDEX, ref);
+        lua_settop(lua, stackTop);
+    });
+
+    handle->processId = processId;
+
+    return 1;
+}
+
 void Internal::registerToplevelBindings(lua_State* L, CConfigManager* mgr) {
     Internal::setMgrFn(L, mgr, "on", hlOn);
     Internal::setMgrFn(L, mgr, "bind", hlBind);
     Internal::setMgrFn(L, mgr, "define_submap", hlDefineSubmap);
     Internal::setMgrFn(L, mgr, "timer", hlTimer);
+    Internal::setMgrFn(L, mgr, "async_exec_cmd", hlAsyncExecCmd);
 
     Internal::setFn(L, "dispatch", hlDispatch);
     Internal::setFn(L, "version", hlVersion);

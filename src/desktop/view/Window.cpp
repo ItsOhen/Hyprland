@@ -1910,11 +1910,10 @@ void CWindow::mapWindow() {
 
                     const auto PMONITORFROMID = m_monitor.lock();
 
-                    if (m_monitor != PMONITOR && !monitorSilent) // NOLINTNEXTLINE
-                        Config::Actions::focusMonitor(PMONITORFROMID);
-
-                    PMONITOR = PMONITORFROMID;
-
+                    if (m_monitor != PMONITOR) { // NOLINTNEXTLINE
+                        (void)Config::Actions::focusMonitor(PMONITORFROMID);
+                        PMONITOR = PMONITORFROMID;
+                    }
                     m_workspace = PMONITOR->m_activeSpecialWorkspace ? PMONITOR->m_activeSpecialWorkspace : PMONITOR->m_activeWorkspace;
                     PWORKSPACE  = m_workspace;
 
@@ -2078,7 +2077,7 @@ void CWindow::mapWindow() {
                 if (pWorkspace->m_isSpecialWorkspace)
                     pWorkspace->m_monitor->setSpecialWorkspace(pWorkspace);
                 else if (PMONITOR->activeWorkspaceID() != requestedWorkspaceID && !m_noInitialFocus) // NOLINTNEXTLINE
-                    Config::Actions::changeWorkspace(requestedWorkspaceName);
+                    (void)Config::Actions::changeWorkspace(requestedWorkspaceName);
 
                 PMONITOR = Desktop::focusState()->monitor();
             }
@@ -2097,7 +2096,7 @@ void CWindow::mapWindow() {
         const auto PMONITORFROMID = m_monitor.lock();
 
         if (m_monitor != PMONITOR) { // NOLINTNEXTLINE
-            Config::Actions::focusMonitor(PMONITORFROMID);
+            (void)Config::Actions::focusMonitor(PMONITORFROMID);
             PMONITOR = PMONITORFROMID;
         }
         m_workspace = PMONITOR->m_activeSpecialWorkspace ? PMONITOR->m_activeSpecialWorkspace : PMONITOR->m_activeWorkspace;

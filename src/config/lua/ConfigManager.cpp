@@ -11,6 +11,7 @@
 #include <hyprutils/string/String.hpp>
 #include <hyprutils/string/Numeric.hpp>
 
+#include "config/lua/objects/LuaProcessHandle.hpp"
 #include "types/LuaConfigUtils.hpp"
 #include "types/LuaConfigBool.hpp"
 
@@ -266,8 +267,9 @@ void CConfigManager::cleanTimers() {
 }
 
 void CConfigManager::reinitLuaState() {
-    // Destroy the event handler first so its luaL_unref calls happen while m_lua is still valid.
+    // Destroy the event handler and coroutine manager first so their luaL_unref calls happen while m_lua is still valid.
     m_eventHandler.reset();
+    m_coroutineManager.reset();
 
     cleanTimers();
     clearLuaLayoutProviders();
@@ -279,6 +281,8 @@ void CConfigManager::reinitLuaState() {
 
     m_lua = luaL_newstate();
     luaL_openlibs(m_lua);
+
+    Config::Lua::Objects::registerProcessHandleMetatable(m_lua);
 
     lua_getglobal(m_lua, "debug");
     if (lua_istable(m_lua, -1)) {
@@ -308,7 +312,12 @@ void CConfigManager::reinitLuaState() {
 
     Bindings::registerBindings(m_lua, this);
 
-    m_eventHandler = makeUnique<CLuaEventHandler>(m_lua);
+    m_coroutineManager = makeUnique<CLuaCoroutineManager>(m_lua);
+    m_eventHandler     = makeUnique<CLuaEventHandler>(m_lua);
+    m_processExecutor  = makeUnique<CProcessExecutor>();
+
+    lua_pushlightuserdata(m_lua, m_eventHandler.get());
+    lua_setfield(m_lua, LUA_REGISTRYINDEX, "HL.EventHandler");
 
     // Hook package.searchers[2] (the Lua file searcher) to track require()'d paths.
     lua_getglobal(m_lua, "package");
@@ -608,11 +617,18 @@ std::optional<std::string> CConfigManager::eval(const std::string& code) {
         return std::format("error: {}", err);
     }
 
-    if (guardedPCall(0, 0, 0, LUA_TIMEOUT_EVAL_MS, "hyprctl eval") != LUA_OK) {
+    if (guardedPCall(0, 1, 0, LUA_TIMEOUT_EVAL_MS, "hyprctl eval") != LUA_OK) {
         std::string err = lua_tostring(m_lua, -1);
         lua_pop(m_lua, 1);
         return std::format("error: {}", err);
     }
+
+    std::optional<std::string> result = std::nullopt;
+    if (lua_isstring(m_lua, -1)) {
+        result = lua_tostring(m_lua, -1);
+    }
+
+    lua_pop(m_lua, 1);
 
     if (!m_errors.empty() || !m_evalIssues.empty()) {
         std::string out;
@@ -634,8 +650,8 @@ std::optional<std::string> CConfigManager::eval(const std::string& code) {
         return out;
     }
 
-    m_errors.clear();
-    m_evalIssues.clear();
+    if (result.has_value())
+        return result;
 
     return std::nullopt;
 }
@@ -1027,7 +1043,7 @@ void CConfigManager::onPluginUnload(void* handle) {
         const bool NEEDS_REMOVE = f.handle == handle;
 
         if (NEEDS_REMOVE) // NOLINTNEXTLINE
-            unregisterPluginLuaFunctionInState(f.namespace_, f.name);
+            (void)unregisterPluginLuaFunctionInState(f.namespace_, f.name);
 
         return NEEDS_REMOVE;
     });
