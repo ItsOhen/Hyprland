@@ -100,6 +100,7 @@ include_directories(. "src/" "protocols/")
 
 set(CMAKE_CXX_STANDARD 26)
 set(CXX_STANDARD_REQUIRED ON)
+
 add_compile_options(
   -Wall
   -Wextra
@@ -113,6 +114,7 @@ add_compile_options(
   -Wno-narrowing
   -Wno-pointer-arith
   -Wno-clobbered
+  -Wno-keyword-macro
   -frtti
   -fmacro-prefix-map=${CMAKE_SOURCE_DIR}/=)
 
