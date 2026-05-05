@@ -3,10 +3,13 @@
 #include "../../../desktop/rule/Engine.hpp"
 
 #include <string_view>
+#include <memory>
 
 using namespace Config::Lua;
 
-static constexpr const char* MT = "HL.WindowRule";
+static constexpr const char*                                        MT = "HL.WindowRule";
+
+std::shared_ptr<Objects::LuaSchema<SP<Desktop::Rule::CWindowRule>>> Objects::CLuaWindowRule::s_schema;
 
 //
 static int windowRuleEq(lua_State* L) {
@@ -59,18 +62,34 @@ static int windowRuleIndex(lua_State* L) {
     luaL_checkudata(L, 1, MT);
     const std::string_view key = luaL_checkstring(L, 2);
 
-    if (key == "set_enabled")
+    if (key == "set_enabled") {
         lua_pushcfunction(L, windowRuleSetEnabled);
-    else if (key == "is_enabled")
+        return 1;
+    } else if (key == "is_enabled") {
         lua_pushcfunction(L, windowRuleIsEnabled);
-    else
-        lua_pushnil(L);
+        return 1;
+    }
 
+    lua_pushnil(L);
     return 1;
 }
 
+static int windowRulePairs(lua_State* L) {
+    return Objects::createPairs<SP<Desktop::Rule::CWindowRule>, WP<Desktop::Rule::CWindowRule>>(L, Objects::CLuaWindowRule::s_schema.get(), MT,
+                                                                                                [](WP<Desktop::Rule::CWindowRule>* ref) { return ref->lock(); });
+}
+
 void Objects::CLuaWindowRule::setup(lua_State* L) {
-    registerMetatable(L, MT, windowRuleIndex, gcRef<WP<Desktop::Rule::CWindowRule>>, windowRuleEq, windowRuleToString);
+    Objects::CLuaWindowRule::s_schema = std::make_shared<LuaSchema<SP<Desktop::Rule::CWindowRule>>>();
+
+    registerMetatable(L, MT,
+                      {
+                          {"__index", windowRuleIndex},
+                          {"__gc", gcRef<WP<Desktop::Rule::CWindowRule>>},
+                          {"__eq", windowRuleEq},
+                          {"__tostring", windowRuleToString},
+                          {"__pairs", windowRulePairs},
+                      });
 }
 
 void Objects::CLuaWindowRule::push(lua_State* L, const SP<Desktop::Rule::CWindowRule>& rule) {

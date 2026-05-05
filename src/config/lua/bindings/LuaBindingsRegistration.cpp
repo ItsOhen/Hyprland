@@ -1,5 +1,6 @@
 #include "LuaBindingsInternal.hpp"
 
+#include "../LuaCoroutineManager.hpp"
 #include "../objects/LuaEventSubscription.hpp"
 #include "../objects/LuaKeybind.hpp"
 #include "../objects/LuaLayerRule.hpp"
@@ -59,27 +60,32 @@ void Internal::registerBindingsImpl(lua_State* L, CConfigManager* mgr) {
     Objects::CLuaKeybind{}.setup(L);
     Objects::CLuaNotification{}.setup(L);
 
-    g_pKeybindManager->m_dispatchers["__lua"] = [L](std::string arg) -> SDispatchResult {
-        int ref = std::stoi(arg);
-        lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
+    g_pKeybindManager->m_dispatchers["__lua"] = [L, mgr](std::string arg) -> SDispatchResult {
+        int        ref   = std::stoi(arg);
+        lua_State* co    = lua_newthread(L);
+        int        coRef = luaL_ref(L, LUA_REGISTRYINDEX);
 
-        int status = LUA_OK;
-        if (auto* mgr = CConfigManager::fromLuaState(L); mgr)
-            status = mgr->guardedPCall(0, 1, 0, CConfigManager::LUA_TIMEOUT_KEYBIND_CALLBACK_MS, "keybind callback");
-        else
-            status = lua_pcall(L, 0, 1, 0);
+        lua_rawgeti(co, LUA_REGISTRYINDEX, ref);
+
+        int nresults = 0;
+        int status   = lua_resume(co, L, 0, &nresults);
+
+        if (status == LUA_YIELD) {
+            mgr->m_coroutineManager->registerThread(co, coRef, LUA_THREAD_TAG_BIND_DISPATCH);
+            return {.success = true};
+        }
 
         if (status != LUA_OK) {
             Config::Lua::Bindings::Internal::reportError(L,
-                                                         Config::Actions::SActionError{std::format("error in keybind lambda: {}", lua_tostring(L, -1)),
+                                                         Config::Actions::SActionError{std::format("error in keybind lambda: {}", lua_tostring(co, -1)),
                                                                                        Config::Actions::eActionErrorLevel::ERROR, Config::Actions::eActionErrorCode::LUA_ERROR});
-            lua_pop(L, 1);
+
+            luaL_unref(L, LUA_REGISTRYINDEX, coRef);
             return {.success = false, .error = "lua keybind error"};
         }
 
-        auto result = dispatchResultFromLua(L, -1);
-        lua_pop(L, 1);
-        return result;
+        luaL_unref(L, LUA_REGISTRYINDEX, coRef);
+        return {.success = true};
     };
 
     lua_newtable(L);

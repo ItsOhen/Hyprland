@@ -15,10 +15,13 @@
 
 #include <algorithm>
 #include <string_view>
+#include <memory>
 
 using namespace Config::Lua;
 
-static constexpr const char* MT = "HL.Workspace";
+static constexpr const char*                      MT = "HL.Workspace";
+
+std::shared_ptr<Objects::LuaSchema<PHLWORKSPACE>> Objects::CLuaWorkspace::s_schema;
 
 //
 static int workspaceEq(lua_State* L) {
@@ -101,70 +104,148 @@ static int workspaceIndex(lua_State* L) {
 
     const std::string_view key = luaL_checkstring(L, 2);
 
-    if (key == "id")
+    if (!Objects::CLuaWorkspace::s_schema || !Objects::CLuaWorkspace::s_schema->has(std::string(key))) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    if (Objects::CLuaWorkspace::s_schema->hasMethod(std::string(key)))
+        return Objects::CLuaWorkspace::s_schema->getMethod(L, std::string(key));
+
+    return Objects::CLuaWorkspace::s_schema->getProperty(L, std::string(key), ws);
+}
+
+static int workspacePairs(lua_State* L) {
+    return Objects::createPairs<PHLWORKSPACE, PHLWORKSPACEREF>(L, Objects::CLuaWorkspace::s_schema.get(), MT, [](PHLWORKSPACEREF* ref) { return ref->lock(); });
+}
+
+void Objects::CLuaWorkspace::setup(lua_State* L) {
+    Objects::CLuaWorkspace::s_schema = std::make_shared<LuaSchema<PHLWORKSPACE>>();
+
+    Objects::CLuaWorkspace::s_schema->addProperty("id", [](lua_State* L, PHLWORKSPACE ws) {
         lua_pushinteger(L, sc<lua_Integer>(ws->m_id));
-    else if (key == "name")
+        return 1;
+    });
+
+    Objects::CLuaWorkspace::s_schema->addProperty("name", [](lua_State* L, PHLWORKSPACE ws) {
         lua_pushstring(L, ws->m_name.c_str());
-    else if (key == "monitor") {
+        return 1;
+    });
+
+    Objects::CLuaWorkspace::s_schema->addProperty("monitor", [](lua_State* L, PHLWORKSPACE ws) {
         const auto mon = ws->m_monitor.lock();
         if (mon)
             Objects::CLuaMonitor::push(L, mon);
         else
             lua_pushnil(L);
-    } else if (key == "windows")
+        return 1;
+    });
+
+    Objects::CLuaWorkspace::s_schema->addProperty("windows", [](lua_State* L, PHLWORKSPACE ws) {
         lua_pushinteger(L, sc<lua_Integer>(ws->getWindows()));
-    else if (key == "visible")
+        return 1;
+    });
+
+    Objects::CLuaWorkspace::s_schema->addProperty("visible", [](lua_State* L, PHLWORKSPACE ws) {
         lua_pushboolean(L, ws->isVisible());
-    else if (key == "special")
+        return 1;
+    });
+
+    Objects::CLuaWorkspace::s_schema->addProperty("special", [](lua_State* L, PHLWORKSPACE ws) {
         lua_pushboolean(L, ws->m_isSpecialWorkspace);
-    else if (key == "active") {
+        return 1;
+    });
+
+    Objects::CLuaWorkspace::s_schema->addProperty("active", [](lua_State* L, PHLWORKSPACE ws) {
         const auto mon = ws->m_monitor.lock();
         lua_pushboolean(L, mon && (mon->m_activeWorkspace == ws || mon->m_activeSpecialWorkspace == ws));
-    } else if (key == "has_urgent")
+        return 1;
+    });
+
+    Objects::CLuaWorkspace::s_schema->addProperty("has_urgent", [](lua_State* L, PHLWORKSPACE ws) {
         lua_pushboolean(L, ws->hasUrgentWindow());
-    else if (key == "fullscreen_mode")
+        return 1;
+    });
+
+    Objects::CLuaWorkspace::s_schema->addProperty("fullscreen_mode", [](lua_State* L, PHLWORKSPACE ws) {
         lua_pushinteger(L, sc<lua_Integer>(ws->m_fullscreenMode));
-    else if (key == "has_fullscreen")
+        return 1;
+    });
+
+    Objects::CLuaWorkspace::s_schema->addProperty("has_fullscreen", [](lua_State* L, PHLWORKSPACE ws) {
         lua_pushboolean(L, ws->m_hasFullscreenWindow);
-    else if (key == "is_persistent")
+        return 1;
+    });
+
+    Objects::CLuaWorkspace::s_schema->addProperty("is_persistent", [](lua_State* L, PHLWORKSPACE ws) {
         lua_pushboolean(L, ws->isPersistent());
-    else if (key == "is_empty")
+        return 1;
+    });
+
+    Objects::CLuaWorkspace::s_schema->addProperty("is_empty", [](lua_State* L, PHLWORKSPACE ws) {
         lua_pushboolean(L, ws->getWindows() == 0);
-    else if (key == "config_name")
+        return 1;
+    });
+
+    Objects::CLuaWorkspace::s_schema->addProperty("config_name", [](lua_State* L, PHLWORKSPACE ws) {
         lua_pushstring(L, ws->getConfigName().c_str());
-    else if (key == "tiled_layout") {
+        return 1;
+    });
+
+    Objects::CLuaWorkspace::s_schema->addProperty("tiled_layout", [](lua_State* L, PHLWORKSPACE ws) {
         std::string layoutName = "unknown";
         if (ws->m_space && ws->m_space->algorithm() && ws->m_space->algorithm()->tiledAlgo()) {
             const auto& TILED_ALGO = ws->m_space->algorithm()->tiledAlgo();
             layoutName             = Layout::Supplementary::algoMatcher()->getNameForTiledAlgo(TILED_ALGO.get());
         }
         lua_pushstring(L, layoutName.c_str());
-    } else if (key == "last_window") {
+        return 1;
+    });
+
+    Objects::CLuaWorkspace::s_schema->addProperty("last_window", [](lua_State* L, PHLWORKSPACE ws) {
         const auto lastWindow = ws->m_lastFocusedWindow.lock();
         if (lastWindow)
             Objects::CLuaWindow::push(L, lastWindow);
         else
             lua_pushnil(L);
-    } else if (key == "fullscreen_window") {
+        return 1;
+    });
+
+    Objects::CLuaWorkspace::s_schema->addProperty("fullscreen_window", [](lua_State* L, PHLWORKSPACE ws) {
         const auto fsWindow = ws->getFullscreenWindow();
         if (fsWindow)
             Objects::CLuaWindow::push(L, fsWindow);
         else
             lua_pushnil(L);
-    } else if (key == "get_windows")
-        lua_pushcfunction(L, workspaceGetWindows);
-    else if (key == "get_groups")
-        lua_pushcfunction(L, workspaceGetGroups);
-    else if (key == "groups")
-        lua_pushinteger(L, sc<lua_Integer>(ws->getGroups()));
-    else
-        lua_pushnil(L);
+        return 1;
+    });
 
-    return 1;
-}
+    // Objects::CLuaWorkspace::s_schema->addProperty("get_windows", [](lua_State* L, PHLWORKSPACE ws) {
+    //     lua_pushcfunction(L, workspaceGetWindows);
+    //     return 1;
+    // });
 
-void Objects::CLuaWorkspace::setup(lua_State* L) {
-    registerMetatable(L, MT, workspaceIndex, gcRef<PHLWORKSPACEREF>, workspaceEq, workspaceToString);
+    // Objects::CLuaWorkspace::s_schema->addProperty("get_groups", [](lua_State* L, PHLWORKSPACE ws) {
+    //     lua_pushcfunction(L, workspaceGetGroups);
+    //     return 1;
+    // });
+    //
+    // Objects::CLuaWorkspace::s_schema->addProperty("groups", [](lua_State* L, PHLWORKSPACE ws) {
+    //     lua_pushinteger(L, sc<lua_Integer>(ws->getGroups()));
+    //     return 1;
+    // });
+
+    Objects::CLuaWorkspace::s_schema->addMethod("get_windows", [](lua_State* L) { return workspaceGetWindows(L); });
+    Objects::CLuaWorkspace::s_schema->addMethod("get_groups", [](lua_State* L) { return workspaceGetGroups(L); });
+
+    registerMetatable(L, MT,
+                      {
+                          {"__index", workspaceIndex},
+                          {"__gc", gcRef<PHLWORKSPACEREF>},
+                          {"__eq", workspaceEq},
+                          {"__tostring", workspaceToString},
+                          {"__pairs", workspacePairs},
+                      });
 }
 
 void Objects::CLuaWorkspace::push(lua_State* L, PHLWORKSPACE ws) {

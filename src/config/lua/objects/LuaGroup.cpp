@@ -5,10 +5,14 @@
 #include "../../../desktop/view/Group.hpp"
 
 #include <string_view>
+#include <memory>
 
 using namespace Config::Lua;
 
 static constexpr const char* MT = "HL.Group";
+
+// Global schema for LuaGroup (initialized in setup)
+std::shared_ptr<Objects::LuaSchema<SP<Desktop::View::CGroup>>> Objects::CLuaGroup::s_schema;
 
 static int                   groupEq(lua_State* L) {
     const auto* lhs = sc<WP<Desktop::View::CGroup>*>(luaL_checkudata(L, 1, MT));
@@ -41,21 +45,54 @@ static int groupIndex(lua_State* L) {
 
     const std::string_view key = luaL_checkstring(L, 2);
 
-    if (key == "locked")
+    if (!Objects::CLuaGroup::s_schema || !Objects::CLuaGroup::s_schema->hasProperty(std::string(key))) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    return Objects::CLuaGroup::s_schema->getProperty(L, std::string(key), group);
+}
+
+static int groupPairs(lua_State* L) {
+    return Objects::createPairs<SP<Desktop::View::CGroup>, WP<Desktop::View::CGroup>>(
+        L, Objects::CLuaGroup::s_schema.get(), MT,
+        [](WP<Desktop::View::CGroup>* ref) { return ref->lock(); });
+}
+
+void Objects::CLuaGroup::setup(lua_State* L) {
+    // Create and populate the schema
+    Objects::CLuaGroup::s_schema = std::make_shared<LuaSchema<SP<Desktop::View::CGroup>>>();
+
+    Objects::CLuaGroup::s_schema->addProperty("locked", [](lua_State* L, SP<Desktop::View::CGroup> group) {
         lua_pushboolean(L, group->locked());
-    else if (key == "denied")
+        return 1;
+    });
+
+    Objects::CLuaGroup::s_schema->addProperty("denied", [](lua_State* L, SP<Desktop::View::CGroup> group) {
         lua_pushboolean(L, group->denied());
-    else if (key == "size")
+        return 1;
+    });
+
+    Objects::CLuaGroup::s_schema->addProperty("size", [](lua_State* L, SP<Desktop::View::CGroup> group) {
         lua_pushinteger(L, sc<lua_Integer>(group->size()));
-    else if (key == "current_index")
+        return 1;
+    });
+
+    Objects::CLuaGroup::s_schema->addProperty("current_index", [](lua_State* L, SP<Desktop::View::CGroup> group) {
         lua_pushinteger(L, sc<lua_Integer>(group->getCurrentIdx()) + 1);
-    else if (key == "current") {
+        return 1;
+    });
+
+    Objects::CLuaGroup::s_schema->addProperty("current", [](lua_State* L, SP<Desktop::View::CGroup> group) {
         const auto current = group->current();
         if (current)
             Objects::CLuaWindow::push(L, current);
         else
             lua_pushnil(L);
-    } else if (key == "members") {
+        return 1;
+    });
+
+    Objects::CLuaGroup::s_schema->addProperty("members", [](lua_State* L, SP<Desktop::View::CGroup> group) {
         lua_newtable(L);
         int i = 1;
         for (const auto& grouped : group->windows()) {
@@ -66,14 +103,16 @@ static int groupIndex(lua_State* L) {
             Objects::CLuaWindow::push(L, groupedWindow);
             lua_rawseti(L, -2, i++);
         }
-    } else
-        lua_pushnil(L);
+        return 1;
+    });
 
-    return 1;
-}
-
-void Objects::CLuaGroup::setup(lua_State* L) {
-    registerMetatable(L, MT, groupIndex, gcRef<WP<Desktop::View::CGroup>>, groupEq, groupToString);
+    registerMetatable(L, MT, {
+        {"__index",    groupIndex},
+        {"__gc",       gcRef<WP<Desktop::View::CGroup>>},
+        {"__eq",       groupEq},
+        {"__tostring", groupToString},
+        {"__pairs",    groupPairs},
+    });
 }
 
 void Objects::CLuaGroup::push(lua_State* L, SP<Desktop::View::CGroup> group) {

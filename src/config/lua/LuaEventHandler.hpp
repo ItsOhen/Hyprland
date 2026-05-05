@@ -6,6 +6,7 @@
 #include <unordered_set>
 #include <vector>
 #include <optional>
+#include <any>
 #include <cstdint>
 
 #include "../../helpers/memory/Memory.hpp"
@@ -36,6 +37,12 @@ namespace Config::Lua {
 
         void                                          clearEvents();
 
+        lua_State*                                          getLuaState() const { return m_lua; }
+
+        uint64_t                                      yieldForProcess(lua_State* thread, uint64_t processId);
+
+        void                                          onProcessComplete(uint64_t processId, const std::any& result);
+
         static const std::unordered_set<std::string>& knownEvents();
 
       private:
@@ -52,6 +59,8 @@ namespace Config::Lua {
         uint64_t                                               m_nextHandle    = 1;
         size_t                                                 m_dispatchDepth = 0;
         std::vector<CHyprSignalListener>                       m_listeners;
+
+        std::unordered_map<uint64_t, uint64_t>                m_asyncThreads;
 
         static constexpr size_t                                MAX_DISPATCH_DEPTH = 32;
 

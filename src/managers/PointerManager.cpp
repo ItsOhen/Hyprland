@@ -31,6 +31,17 @@
 
 using namespace Hyprutils::Utils;
 
+void CPointerManager::handleDpmsOnActivity() {
+    static auto PMOUSEDPMS = CConfigValue<Config::INTEGER>("misc:mouse_move_enables_dpms");
+
+    if (!g_pCompositor->m_dpmsStateOn && *PMOUSEDPMS) {
+        auto result = Config::Actions::dpms(Config::Actions::TOGGLE_ACTION_ENABLE, std::nullopt);
+        if (!result.has_value()) {
+            Log::logger->log(Log::ERR, "[PointerManager] DPMS activity toggle failed: {}", result.error().message);
+        }
+    }
+}
+
 CPointerManager::CPointerManager() {
     m_hooks.monitorAdded = Event::bus()->m_events.monitor.added.listen([this](PHLMONITOR monitor) {
         onMonitorLayoutChange();
@@ -929,30 +940,21 @@ void CPointerManager::attachPointer(SP<IPointer> pointer) {
     if (!pointer)
         return;
 
-    static auto PMOUSEDPMS = CConfigValue<Config::INTEGER>("misc:mouse_move_enables_dpms");
-
-    //
-    auto listener = m_pointerListeners.emplace_back(makeShared<SPointerListener>());
-
+    auto listener     = m_pointerListeners.emplace_back(makeShared<SPointerListener>());
     listener->pointer = pointer;
 
-    listener->destroy = pointer->m_events.destroy.listen([this] { detachPointer(nullptr); });
-    listener->motion  = pointer->m_pointerEvents.motion.listen([](const IPointer::SMotionEvent& event) {
+    listener->destroy = pointer->m_events.destroy.listen([this]() { detachPointer(nullptr); });
+
+    listener->motion = pointer->m_pointerEvents.motion.listen([this](const IPointer::SMotionEvent& event) {
         g_pInputManager->onMouseMoved(event);
-
         PROTO::idle->onActivity();
-
-        if (!g_pCompositor->m_dpmsStateOn && *PMOUSEDPMS) // NOLINTNEXTLINE
-            Config::Actions::dpms(Config::Actions::TOGGLE_ACTION_ENABLE, std::nullopt);
+        handleDpmsOnActivity();
     });
 
-    listener->motionAbsolute = pointer->m_pointerEvents.motionAbsolute.listen([](const IPointer::SMotionAbsoluteEvent& event) {
+    listener->motionAbsolute = pointer->m_pointerEvents.motionAbsolute.listen([this](const IPointer::SMotionAbsoluteEvent& event) {
         g_pInputManager->onMouseWarp(event);
-
         PROTO::idle->onActivity();
-
-        if (!g_pCompositor->m_dpmsStateOn && *PMOUSEDPMS) // NOLINTNEXTLINE
-            Config::Actions::dpms(Config::Actions::TOGGLE_ACTION_ENABLE, std::nullopt);
+        handleDpmsOnActivity();
     });
 
     listener->button = pointer->m_pointerEvents.button.listen([weak = WP<IPointer>(pointer)](const IPointer::SButtonEvent& event) {
@@ -960,19 +962,17 @@ void CPointerManager::attachPointer(SP<IPointer> pointer) {
         PROTO::idle->onActivity();
     });
 
-    listener->axis  = pointer->m_pointerEvents.axis.listen([weak = WP<IPointer>(pointer)](const IPointer::SAxisEvent& event) {
+    listener->axis = pointer->m_pointerEvents.axis.listen([weak = WP<IPointer>(pointer)](const IPointer::SAxisEvent& event) {
         g_pInputManager->onMouseWheel(event, weak.lock());
         PROTO::idle->onActivity();
     });
+
     listener->frame = pointer->m_pointerEvents.frame.listen([] { g_pInputManager->onPointerFrame(); });
 
-    listener->swipeBegin = pointer->m_pointerEvents.swipeBegin.listen([](const IPointer::SSwipeBeginEvent& event) {
+    listener->swipeBegin = pointer->m_pointerEvents.swipeBegin.listen([this](const IPointer::SSwipeBeginEvent& event) {
         g_pInputManager->onSwipeBegin(event);
-
         PROTO::idle->onActivity();
-
-        if (!g_pCompositor->m_dpmsStateOn && *PMOUSEDPMS) // NOLINTNEXTLINE
-            Config::Actions::dpms(Config::Actions::TOGGLE_ACTION_ENABLE, std::nullopt);
+        handleDpmsOnActivity();
     });
 
     listener->swipeEnd = pointer->m_pointerEvents.swipeEnd.listen([](const IPointer::SSwipeEndEvent& event) {
@@ -985,24 +985,19 @@ void CPointerManager::attachPointer(SP<IPointer> pointer) {
         PROTO::idle->onActivity();
     });
 
-    listener->pinchBegin = pointer->m_pointerEvents.pinchBegin.listen([](const IPointer::SPinchBeginEvent& event) {
+    listener->pinchBegin = pointer->m_pointerEvents.pinchBegin.listen([this](const IPointer::SPinchBeginEvent& event) {
         g_pInputManager->onPinchBegin(event);
-
         PROTO::idle->onActivity();
-
-        if (!g_pCompositor->m_dpmsStateOn && *PMOUSEDPMS) // NOLINTNEXTLINE
-            Config::Actions::dpms(Config::Actions::TOGGLE_ACTION_ENABLE, std::nullopt);
+        handleDpmsOnActivity();
     });
 
     listener->pinchEnd = pointer->m_pointerEvents.pinchEnd.listen([](const IPointer::SPinchEndEvent& event) {
         g_pInputManager->onPinchEnd(event);
-
         PROTO::idle->onActivity();
     });
 
     listener->pinchUpdate = pointer->m_pointerEvents.pinchUpdate.listen([](const IPointer::SPinchUpdateEvent& event) {
         g_pInputManager->onPinchUpdate(event);
-
         PROTO::idle->onActivity();
     });
 
@@ -1023,22 +1018,15 @@ void CPointerManager::attachTouch(SP<ITouch> touch) {
     if (!touch)
         return;
 
-    static auto PMOUSEDPMS = CConfigValue<Config::INTEGER>("misc:mouse_move_enables_dpms");
-
-    //
-    auto listener = m_touchListeners.emplace_back(makeShared<STouchListener>());
-
+    auto listener   = m_touchListeners.emplace_back(makeShared<STouchListener>());
     listener->touch = touch;
 
-    listener->destroy = touch->m_events.destroy.listen([this] { detachTouch(nullptr); });
+    listener->destroy = touch->m_events.destroy.listen([this]() { detachTouch(nullptr); });
 
-    listener->down = touch->m_touchEvents.down.listen([](const ITouch::SDownEvent& event) {
+    listener->down = touch->m_touchEvents.down.listen([this](const ITouch::SDownEvent& event) {
         g_pInputManager->onTouchDown(event);
-
         PROTO::idle->onActivity();
-
-        if (!g_pCompositor->m_dpmsStateOn && *PMOUSEDPMS) // NOLINTNEXTLINE
-            Config::Actions::dpms(Config::Actions::TOGGLE_ACTION_ENABLE, std::nullopt);
+        handleDpmsOnActivity();
     });
 
     listener->up = touch->m_touchEvents.up.listen([](const ITouch::SUpEvent& event) {
@@ -1051,10 +1039,6 @@ void CPointerManager::attachTouch(SP<ITouch> touch) {
         PROTO::idle->onActivity();
     });
 
-    listener->cancel = touch->m_touchEvents.cancel.listen([] {
-        //
-    });
-
     listener->frame = touch->m_touchEvents.frame.listen([] { g_pSeatManager->sendTouchFrame(); });
 
     Log::logger->log(Log::DEBUG, "Attached touch {} to global", touch->m_hlName);
@@ -1064,22 +1048,15 @@ void CPointerManager::attachTablet(SP<CTablet> tablet) {
     if (!tablet)
         return;
 
-    static auto PMOUSEDPMS = CConfigValue<Config::INTEGER>("misc:mouse_move_enables_dpms");
-
-    //
-    auto listener = m_tabletListeners.emplace_back(makeShared<STabletListener>());
-
+    auto listener    = m_tabletListeners.emplace_back(makeShared<STabletListener>());
     listener->tablet = tablet;
 
-    listener->destroy = tablet->m_events.destroy.listen([this] { detachTablet(nullptr); });
+    listener->destroy = tablet->m_events.destroy.listen([this]() { detachTablet(nullptr); });
 
-    listener->axis = tablet->m_tabletEvents.axis.listen([](const CTablet::SAxisEvent& event) {
+    listener->axis = tablet->m_tabletEvents.axis.listen([this](const CTablet::SAxisEvent& event) {
         g_pInputManager->onTabletAxis(event);
-
         PROTO::idle->onActivity();
-
-        if (!g_pCompositor->m_dpmsStateOn && *PMOUSEDPMS) // NOLINTNEXTLINE
-            Config::Actions::dpms(Config::Actions::TOGGLE_ACTION_ENABLE, std::nullopt);
+        handleDpmsOnActivity();
     });
 
     listener->proximity = tablet->m_tabletEvents.proximity.listen([](const CTablet::SProximityEvent& event) {
@@ -1087,20 +1064,16 @@ void CPointerManager::attachTablet(SP<CTablet> tablet) {
         PROTO::idle->onActivity();
     });
 
-    listener->tip = tablet->m_tabletEvents.tip.listen([](const CTablet::STipEvent& event) {
+    listener->tip = tablet->m_tabletEvents.tip.listen([this](const CTablet::STipEvent& event) {
         g_pInputManager->onTabletTip(event);
-
         PROTO::idle->onActivity();
-
-        if (!g_pCompositor->m_dpmsStateOn && *PMOUSEDPMS) // NOLINTNEXTLINE
-            Config::Actions::dpms(Config::Actions::TOGGLE_ACTION_ENABLE, std::nullopt);
+        handleDpmsOnActivity();
     });
 
     listener->button = tablet->m_tabletEvents.button.listen([](const CTablet::SButtonEvent& event) {
         g_pInputManager->onTabletButton(event);
         PROTO::idle->onActivity();
     });
-    // clang-format on
 
     Log::logger->log(Log::DEBUG, "Attached tablet {} to global", tablet->m_hlName);
 }
@@ -1123,16 +1096,16 @@ void CPointerManager::damageCursor(PHLMONITOR pMonitor, bool skipFrameSchedule) 
             continue;
 
         auto b = getCursorBoxGlobal().intersection(pMonitor->logicalBox());
-
         if (b.empty())
             return;
 
         g_pHyprRenderer->damageBox(b, skipFrameSchedule);
-
         return;
     }
 }
 
 Vector2D CPointerManager::cursorSizeLogical() {
+    if (m_currentCursorImage.size.x <= 0 || m_currentCursorImage.size.y <= 0)
+        return {24, 24};
     return m_currentCursorImage.size / m_currentCursorImage.scale;
 }

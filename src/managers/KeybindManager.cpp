@@ -758,12 +758,20 @@ SDispatchResult CKeybindManager::handleKeybinds(const uint32_t modmask, const SP
 
             Config::Actions::state()->m_passPressed = -1;
 
+            if (!res.success && !res.error.empty()) {
+                Log::logger->log(Log::ERR, "[Lua] Dispatcher error: {}", res.error);
+            }
+
             if (k->handler == "submap") {
                 found = true; // don't process keybinds on submap change.
                 break;
             }
-            if (k->handler != "submap" && !k->submap.reset.empty()) // NOLINTNEXTLINE
-                Config::Actions::setSubmap(k->submap.reset);
+            if (k->handler != "submap" && !k->submap.reset.empty()) {
+                auto result = Config::Actions::setSubmap(k->submap.reset);
+                if (!result.has_value()) {
+                    Log::logger->log(Log::ERR, "Failed to reset submap to '{}': {}", k->submap.reset, result.error().message);
+                }
+            }
         }
 
         if (pressed && k->repeat) {

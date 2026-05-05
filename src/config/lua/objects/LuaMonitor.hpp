@@ -8,5 +8,8 @@ namespace Config::Lua::Objects {
       public:
         void        setup(lua_State* L) override;
         static void push(lua_State* L, PHLMONITOR mon);
+
+      public:
+        static std::shared_ptr<LuaSchema<PHLMONITOR>> s_schema;
     };
 }

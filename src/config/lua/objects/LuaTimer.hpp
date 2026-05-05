@@ -8,5 +8,8 @@ namespace Config::Lua::Objects {
       public:
         void        setup(lua_State* L) override;
         static void push(lua_State* L, const SP<CEventLoopTimer>& timer, int timeoutMs);
+
+      public:
+        static SP<LuaSchema<SP<CEventLoopTimer>>> s_schema;
     };
 }

@@ -3,10 +3,14 @@
 #include "../../../desktop/rule/Engine.hpp"
 
 #include <string_view>
+#include <memory>
 
 using namespace Config::Lua;
 
 static constexpr const char* MT = "HL.LayerRule";
+
+// Global schema for LuaLayerRule (initialized in setup)
+std::shared_ptr<Objects::LuaSchema<SP<Desktop::Rule::CLayerRule>>> Objects::CLuaLayerRule::s_schema;
 
 //
 static int layerRuleEq(lua_State* L) {
@@ -59,18 +63,35 @@ static int layerRuleIndex(lua_State* L) {
     luaL_checkudata(L, 1, MT);
     const std::string_view key = luaL_checkstring(L, 2);
 
-    if (key == "set_enabled")
+    if (key == "set_enabled") {
         lua_pushcfunction(L, layerRuleSetEnabled);
-    else if (key == "is_enabled")
+        return 1;
+    } else if (key == "is_enabled") {
         lua_pushcfunction(L, layerRuleIsEnabled);
-    else
-        lua_pushnil(L);
+        return 1;
+    }
 
+    lua_pushnil(L);
     return 1;
 }
 
+static int layerRulePairs(lua_State* L) {
+    return Objects::createPairs<SP<Desktop::Rule::CLayerRule>, WP<Desktop::Rule::CLayerRule>>(
+        L, Objects::CLuaLayerRule::s_schema.get(), MT,
+        [](WP<Desktop::Rule::CLayerRule>* ref) { return ref->lock(); });
+}
+
 void Objects::CLuaLayerRule::setup(lua_State* L) {
-    registerMetatable(L, MT, layerRuleIndex, gcRef<WP<Desktop::Rule::CLayerRule>>, layerRuleEq, layerRuleToString);
+    // Create and populate the schema (empty in this case as only methods exist)
+    Objects::CLuaLayerRule::s_schema = std::make_shared<LuaSchema<SP<Desktop::Rule::CLayerRule>>>();
+
+    registerMetatable(L, MT, {
+        {"__index",    layerRuleIndex},
+        {"__gc",       gcRef<WP<Desktop::Rule::CLayerRule>>},
+        {"__eq",       layerRuleEq},
+        {"__tostring", layerRuleToString},
+        {"__pairs",    layerRulePairs},
+    });
 }
 
 void Objects::CLuaLayerRule::push(lua_State* L, const SP<Desktop::Rule::CLayerRule>& rule) {

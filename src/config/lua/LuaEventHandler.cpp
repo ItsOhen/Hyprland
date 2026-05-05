@@ -1,5 +1,6 @@
 #include "LuaEventHandler.hpp"
 #include "ConfigManager.hpp"
+#include "LuaCoroutineManager.hpp"
 #include "objects/LuaWindow.hpp"
 #include "objects/LuaWorkspace.hpp"
 #include "objects/LuaGroup.hpp"
@@ -8,6 +9,7 @@
 
 #include "../../event/EventBus.hpp"
 #include "../../desktop/state/FocusState.hpp"
+#include "../../debug/log/Logger.hpp"
 
 extern "C" {
 #include <lauxlib.h>
@@ -232,4 +234,38 @@ const std::unordered_set<std::string>& CLuaEventHandler::knownEvents() {
         "hyprland.shutdown",
     };
     return EVENTS;
+}
+
+uint64_t CLuaEventHandler::yieldForProcess(lua_State* thread, uint64_t processId) {
+    auto* mgr = CConfigManager::fromLuaState(m_lua);
+    if (!mgr || !mgr->m_coroutineManager) {
+        Log::logger->log(Log::ERR, "CLuaEventHandler::yieldForProcess: coroutine manager unavailable");
+        return 0;
+    }
+
+    const uint64_t threadId =
+        mgr->m_coroutineManager->registerThread(thread, LUA_NOREF, LUA_THREAD_TAG_ASYNC_EXEC);
+    m_asyncThreads[processId] = threadId;
+
+    Log::logger->log(Log::DEBUG, "CLuaEventHandler::yieldForProcess: process {} → thread {}", processId, threadId);
+
+    return threadId;
+}
+
+void CLuaEventHandler::onProcessComplete(uint64_t processId, const std::any& result) {
+    Log::logger->log(Log::DEBUG, "onProcessComplete: Signal received for PID {}", processId);
+    Log::logger->log(Log::DEBUG, "onProcessComplete: pending async processes: {}", m_asyncThreads.size());
+
+    auto it = m_asyncThreads.find(processId);
+    if (it == m_asyncThreads.end())
+        return;
+
+    const uint64_t threadId = it->second;
+    m_asyncThreads.erase(it);
+
+    auto* mgr = CConfigManager::fromLuaState(m_lua);
+    if (mgr && mgr->m_coroutineManager) {
+        Log::logger->log(Log::DEBUG, "onProcessComplete: resuming thread {}", threadId);
+        mgr->m_coroutineManager->resumeThread(threadId, result);
+    }
 }

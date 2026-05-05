@@ -159,6 +159,9 @@ def parse_object_classes(root: Path) -> dict[str, ObjectClass]:
     index_header = re.compile(r"static int\s+\w*Index\s*\(lua_State\* L\)\s*\{", re.MULTILINE)
     cond_regex = re.compile(r"(?:if|else\s+if)\s*\(([^)]*\bkey\b[^)]*)\)")
     push_class_regex = re.compile(r"Objects::CLua([A-Za-z0-9_]+)::push")
+    setup_header = re.compile(r"void\s+Objects::CLua(\w+)::setup\s*\(lua_State\* L\)\s*\{", re.MULTILINE)
+    add_property_regex = re.compile(r'addProperty\s*\(\s*"([^"]+)"\s*,')
+    add_method_regex = re.compile(r'addMethod\s*\(\s*"([^"]+)"\s*,')
 
     out: dict[str, ObjectClass] = {}
 
@@ -175,6 +178,35 @@ def parse_object_classes(root: Path) -> dict[str, ObjectClass]:
         class_name = mt_name
         obj = ObjectClass(name=class_name)
 
+        # Try to parse new schema-based pattern from setup() function
+        setup_matches = list(setup_header.finditer(source))
+        if setup_matches:
+            # Get the setup function body
+            setup_match = setup_matches[0]
+            open_idx = source.find("{", setup_match.end() - 1)
+            if open_idx >= 0:
+                try:
+                    close_idx = find_matching_brace(source, open_idx)
+                    setup_body = source[open_idx + 1:close_idx]
+
+                    # Parse addProperty calls
+                    for prop_match in add_property_regex.finditer(setup_body):
+                        prop_name = prop_match.group(1)
+                        # Infer type from lambda body - default to any for now
+                        # Could be enhanced to parse lambda body for type info
+                        obj.fields[prop_name] = "any"
+
+                    # Parse addMethod calls
+                    for method_match in add_method_regex.finditer(setup_body):
+                        method_name = method_match.group(1)
+                        obj.methods.add(method_name)
+
+                    out[class_name] = obj
+                    continue
+                except ValueError:
+                    pass  # fall through to old parsing
+
+        # Fall back to old if-else chain parsing
         bodies = extract_function_bodies(source, index_header)
         if not bodies:
             out[class_name] = obj

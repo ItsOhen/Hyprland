@@ -2,10 +2,13 @@
 
 #include <algorithm>
 #include <string_view>
+#include <memory>
 
 using namespace Config::Lua;
 
-static constexpr const char* MT = "HL.Timer";
+static constexpr const char*                MT = "HL.Timer";
+
+SP<Objects::LuaSchema<SP<CEventLoopTimer>>> Objects::CLuaTimer::s_schema;
 
 namespace {
     struct STimerRef {
@@ -86,20 +89,36 @@ static int timerIndex(lua_State* L) {
     luaL_checkudata(L, 1, MT);
     const std::string_view key = luaL_checkstring(L, 2);
 
-    if (key == "set_enabled")
+    if (key == "set_enabled") {
         lua_pushcfunction(L, timerSetEnabled);
-    else if (key == "is_enabled")
+        return 1;
+    } else if (key == "is_enabled") {
         lua_pushcfunction(L, timerIsEnabled);
-    else if (key == "set_timeout")
+        return 1;
+    } else if (key == "set_timeout") {
         lua_pushcfunction(L, timerSetTimeout);
-    else
-        lua_pushnil(L);
+        return 1;
+    }
 
+    lua_pushnil(L);
     return 1;
 }
 
+static int timerPairs(lua_State* L) {
+    return Objects::createPairs<SP<CEventLoopTimer>, STimerRef>(L, Objects::CLuaTimer::s_schema.get(), MT, [](STimerRef* ref) { return ref->timer.lock(); });
+}
+
 void Objects::CLuaTimer::setup(lua_State* L) {
-    registerMetatable(L, MT, timerIndex, gcRef<STimerRef>, timerEq, timerToString);
+    Objects::CLuaTimer::s_schema = makeShared<LuaSchema<SP<CEventLoopTimer>>>();
+
+    registerMetatable(L, MT,
+                      {
+                          {"__index", timerIndex},
+                          {"__gc", gcRef<STimerRef>},
+                          {"__eq", timerEq},
+                          {"__tostring", timerToString},
+                          {"__pairs", timerPairs},
+                      });
 }
 
 void Objects::CLuaTimer::push(lua_State* L, const SP<CEventLoopTimer>& timer, int timeoutMs) {

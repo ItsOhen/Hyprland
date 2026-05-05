@@ -2,10 +2,8 @@
 #include "LuaWorkspace.hpp"
 #include "LuaMonitor.hpp"
 #include "LuaGroup.hpp"
-#include "LuaObjectHelpers.hpp"
 
 #include "../../../desktop/view/Window.hpp"
-#include "../../../desktop/view/Group.hpp"
 #include "../../../desktop/Workspace.hpp"
 #include "../../../desktop/state/FocusState.hpp"
 #include "../../../desktop/history/WindowHistoryTracker.hpp"
@@ -19,10 +17,13 @@
 
 #include <format>
 #include <string_view>
+#include <memory>
 
 using namespace Config::Lua;
 
-static constexpr const char* MT = "HL.Window";
+static constexpr const char*                   MT = "HL.Window";
+
+std::shared_ptr<Objects::LuaSchema<PHLWINDOW>> Objects::CLuaWindow::s_schema;
 
 //
 static int getFocusHistoryID(PHLWINDOW wnd) {
@@ -66,69 +67,147 @@ static int windowIndex(lua_State* L) {
 
     const std::string_view key = luaL_checkstring(L, 2);
 
-    if (key == "address")
+    if (!Objects::CLuaWindow::s_schema || !Objects::CLuaWindow::s_schema->hasProperty(std::string(key))) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    return Objects::CLuaWindow::s_schema->getProperty(L, std::string(key), w);
+}
+
+static int windowPairs(lua_State* L) {
+    return Objects::createPairs<PHLWINDOW, PHLWINDOWREF>(L, Objects::CLuaWindow::s_schema.get(), "HL.Window", [](PHLWINDOWREF* ref) { return ref->lock(); });
+}
+
+void Objects::CLuaWindow::setup(lua_State* L) {
+    Objects::CLuaWindow::s_schema = std::make_shared<LuaSchema<PHLWINDOW>>();
+
+    Objects::CLuaWindow::s_schema->addProperty("address", [](lua_State* L, PHLWINDOW w) {
         lua_pushstring(L, std::format("0x{:x}", reinterpret_cast<uintptr_t>(w.get())).c_str());
-    else if (key == "mapped")
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("mapped", [](lua_State* L, PHLWINDOW w) {
         lua_pushboolean(L, w->m_isMapped);
-    else if (key == "hidden")
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("hidden", [](lua_State* L, PHLWINDOW w) {
         lua_pushboolean(L, w->isHidden());
-    else if (key == "visible")
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("visible", [](lua_State* L, PHLWINDOW w) {
         lua_pushboolean(L, w->visible());
-    else if (key == "accepts_input")
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("accepts_input", [](lua_State* L, PHLWINDOW w) {
         lua_pushboolean(L, w->acceptsInput());
-    else if (key == "at") {
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("at", [](lua_State* L, PHLWINDOW w) {
         lua_newtable(L);
         lua_pushinteger(L, sc<int>(w->m_realPosition->goal().x));
         lua_setfield(L, -2, "x");
         lua_pushinteger(L, sc<int>(w->m_realPosition->goal().y));
         lua_setfield(L, -2, "y");
-    } else if (key == "size") {
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("size", [](lua_State* L, PHLWINDOW w) {
         lua_newtable(L);
         lua_pushinteger(L, sc<int>(w->m_realSize->goal().x));
         lua_setfield(L, -2, "x");
         lua_pushinteger(L, sc<int>(w->m_realSize->goal().y));
         lua_setfield(L, -2, "y");
-    } else if (key == "workspace") {
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("workspace", [](lua_State* L, PHLWINDOW w) {
         if (w->m_workspace)
             Objects::CLuaWorkspace::push(L, w->m_workspace);
         else
             lua_pushnil(L);
-    } else if (key == "floating")
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("floating", [](lua_State* L, PHLWINDOW w) {
         lua_pushboolean(L, w->m_isFloating);
-    else if (key == "monitor") {
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("monitor", [](lua_State* L, PHLWINDOW w) {
         const auto mon = w->m_monitor.lock();
         if (mon)
             Objects::CLuaMonitor::push(L, mon);
         else
             lua_pushnil(L);
-    } else if (key == "class")
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("class", [](lua_State* L, PHLWINDOW w) {
         lua_pushstring(L, w->m_class.c_str());
-    else if (key == "title")
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("title", [](lua_State* L, PHLWINDOW w) {
         lua_pushstring(L, w->m_title.c_str());
-    else if (key == "initial_class")
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("initial_class", [](lua_State* L, PHLWINDOW w) {
         lua_pushstring(L, w->m_initialClass.c_str());
-    else if (key == "initial_title")
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("initial_title", [](lua_State* L, PHLWINDOW w) {
         lua_pushstring(L, w->m_initialTitle.c_str());
-    else if (key == "pid")
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("pid", [](lua_State* L, PHLWINDOW w) {
         lua_pushinteger(L, sc<lua_Integer>(w->getPID()));
-    else if (key == "xwayland")
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("xwayland", [](lua_State* L, PHLWINDOW w) {
         lua_pushboolean(L, w->m_isX11);
-    else if (key == "pinned")
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("pinned", [](lua_State* L, PHLWINDOW w) {
         lua_pushboolean(L, w->m_pinned);
-    else if (key == "fullscreen")
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("fullscreen", [](lua_State* L, PHLWINDOW w) {
         lua_pushinteger(L, sc<lua_Integer>(sc<uint8_t>(w->m_fullscreenState.internal)));
-    else if (key == "fullscreen_client")
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("fullscreen_client", [](lua_State* L, PHLWINDOW w) {
         lua_pushinteger(L, sc<lua_Integer>(sc<uint8_t>(w->m_fullscreenState.client)));
-    else if (key == "over_fullscreen")
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("over_fullscreen", [](lua_State* L, PHLWINDOW w) {
         lua_pushboolean(L, w->m_createdOverFullscreen);
-    else if (key == "group") {
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("group", [](lua_State* L, PHLWINDOW w) {
         if (!w->m_group) {
             lua_pushnil(L);
             return 1;
         }
 
         Objects::CLuaGroup::push(L, w->m_group);
-    } else if (key == "tags") {
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("tags", [](lua_State* L, PHLWINDOW w) {
         lua_newtable(L);
 
         int i = 1;
@@ -136,33 +215,57 @@ static int windowIndex(lua_State* L) {
             lua_pushstring(L, tag.c_str());
             lua_rawseti(L, -2, i++);
         }
-    } else if (key == "swallowing") {
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("swallowing", [](lua_State* L, PHLWINDOW w) {
         const auto swallowed = w->m_swallowed.lock();
         if (swallowed)
             Objects::CLuaWindow::push(L, swallowed);
         else
             lua_pushnil(L);
-    } else if (key == "focus_history_id")
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("focus_history_id", [](lua_State* L, PHLWINDOW w) {
         lua_pushinteger(L, sc<lua_Integer>(getFocusHistoryID(w)));
-    else if (key == "inhibiting_idle")
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("inhibiting_idle", [](lua_State* L, PHLWINDOW w) {
         lua_pushboolean(L, g_pInputManager && g_pInputManager->isWindowInhibiting(w, false));
-    else if (key == "xdg_tag") {
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("xdg_tag", [](lua_State* L, PHLWINDOW w) {
         const auto xdgTag = w->xdgTag();
         if (xdgTag)
             lua_pushstring(L, xdgTag->c_str());
         else
             lua_pushnil(L);
-    } else if (key == "xdg_description") {
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("xdg_description", [](lua_State* L, PHLWINDOW w) {
         const auto xdgDescription = w->xdgDescription();
         if (xdgDescription)
             lua_pushstring(L, xdgDescription->c_str());
         else
             lua_pushnil(L);
-    } else if (key == "content_type")
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("content_type", [](lua_State* L, PHLWINDOW w) {
         lua_pushstring(L, NContentType::toString(w->getContentType()).c_str());
-    else if (key == "stable_id")
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("stable_id", [](lua_State* L, PHLWINDOW w) {
         lua_pushinteger(L, sc<lua_Integer>(w->m_stableID));
-    else if (key == "layout") {
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("layout", [](lua_State* L, PHLWINDOW w) {
         const auto target = w->layoutTarget();
         if (!target || target->floating() || !w->m_workspace || !w->m_workspace->m_space) {
             lua_pushnil(L);
@@ -232,16 +335,22 @@ static int windowIndex(lua_State* L) {
                 }
             }
         }
-    } else if (key == "active") {
+        return 1;
+    });
+
+    Objects::CLuaWindow::s_schema->addProperty("active", [](lua_State* L, PHLWINDOW w) {
         lua_pushboolean(L, w == Desktop::focusState()->window());
-    } else
-        lua_pushnil(L);
+        return 1;
+    });
 
-    return 1;
-}
-
-void Objects::CLuaWindow::setup(lua_State* L) {
-    registerMetatable(L, MT, windowIndex, gcRef<PHLWINDOWREF>, windowEq, windowToString);
+    registerMetatable(L, MT,
+                      {
+                          {"__index", windowIndex},
+                          {"__gc", gcRef<PHLWINDOWREF>},
+                          {"__eq", windowEq},
+                          {"__tostring", windowToString},
+                          {"__pairs", windowPairs},
+                      });
 }
 
 void Objects::CLuaWindow::push(lua_State* L, PHLWINDOW w) {

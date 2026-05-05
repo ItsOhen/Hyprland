@@ -8,5 +8,8 @@ namespace Config::Lua::Objects {
       public:
         void        setup(lua_State* L) override;
         static void push(lua_State* L, const SP<Desktop::Rule::CWindowRule>& rule);
+
+      public:
+        static std::shared_ptr<LuaSchema<SP<Desktop::Rule::CWindowRule>>> s_schema;
     };
 }

@@ -14,8 +14,10 @@
 #include "../ConfigManager.hpp"
 #include "../../managers/eventLoop/EventLoopTimer.hpp"
 
-#include "./types/LuaConfigValue.hpp"
-#include "./LuaEventHandler.hpp"
+#include "types/LuaConfigValue.hpp"
+#include "LuaEventHandler.hpp"
+#include "LuaCoroutineManager.hpp"
+#include "LuaProcessExecutor.hpp"
 
 #include "../../desktop/rule/windowRule/WindowRule.hpp"
 #include "../../desktop/rule/layerRule/LayerRule.hpp"
@@ -117,6 +119,8 @@ namespace Config::Lua {
         std::string                m_currentSubmapReset;
 
         UP<CLuaEventHandler>       m_eventHandler;
+        UP<CLuaCoroutineManager>   m_coroutineManager;
+        UP<CProcessExecutor>       m_processExecutor;
 
         struct SLuaTimer {
             SP<CEventLoopTimer> timer;
