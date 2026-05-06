@@ -15,8 +15,8 @@ extern "C" {
 
 namespace Config::Lua {
 
-    inline constexpr std::string_view LUA_THREAD_TAG_ASYNC_EXEC      = "async_exec";
-    inline constexpr std::string_view LUA_THREAD_TAG_BIND_DISPATCH    = "bind_dispatch";
+    inline constexpr std::string_view LUA_THREAD_TAG_ASYNC_EXEC    = "async_exec";
+    inline constexpr std::string_view LUA_THREAD_TAG_BIND_DISPATCH = "bind_dispatch";
 
     class CLuaCoroutineManager {
       public:
@@ -25,9 +25,9 @@ namespace Config::Lua {
 
         uint64_t registerThread(lua_State* thread, int threadRegistryRef = LUA_NOREF, std::string_view tag = {});
 
-        bool resumeThread(uint64_t threadId, const std::any& result);
+        bool     resumeThread(uint64_t threadId, const std::any& result);
 
-        void clearAll();
+        void     clearAll();
 
       private:
         struct SThread {
@@ -36,9 +36,9 @@ namespace Config::Lua {
             std::string tag;
         };
 
-        lua_State*                                  m_lua = nullptr;
-        std::unordered_map<uint64_t, SThread>       m_threads;
-        uint64_t                                    m_nextId = 1;
+        lua_State*                            m_lua = nullptr;
+        std::unordered_map<uint64_t, SThread> m_threads;
+        uint64_t                              m_nextId = 1;
     };
 
 }

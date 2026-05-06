@@ -1099,29 +1099,29 @@ void CInputManager::setupKeyboard(SP<IKeyboard> keeb) {
         Log::logger->log(Log::DEBUG, "Destroyed keyboard {:x}", rc<uintptr_t>(keeb));
     });
 
-     keeb->m_keyboardEvents.key.listenStatic([this, keeb = keeb.get()](const IKeyboard::SKeyEvent& event) {
-         auto PKEEB = keeb->m_self.lock();
+    keeb->m_keyboardEvents.key.listenStatic([this, keeb = keeb.get()](const IKeyboard::SKeyEvent& event) {
+        auto PKEEB = keeb->m_self.lock();
 
-         onKeyboardKey(event, PKEEB);
+        onKeyboardKey(event, PKEEB);
 
-         if (PKEEB->m_enabled)
-             PROTO::idle->onActivity();
+        if (PKEEB->m_enabled)
+            PROTO::idle->onActivity();
 
-         if (PKEEB->m_enabled && *PDPMS && !g_pCompositor->m_dpmsStateOn) // NOLINTNEXTLINE
-             (void)Config::Actions::dpms(Config::Actions::TOGGLE_ACTION_ENABLE, std::nullopt);
-     });
+        if (PKEEB->m_enabled && *PDPMS && !g_pCompositor->m_dpmsStateOn) // NOLINTNEXTLINE
+            (void)Config::Actions::dpms(Config::Actions::TOGGLE_ACTION_ENABLE, std::nullopt);
+    });
 
-     keeb->m_keyboardEvents.modifiers.listenStatic([this, keeb = keeb.get()] {
-         auto PKEEB = keeb->m_self.lock();
+    keeb->m_keyboardEvents.modifiers.listenStatic([this, keeb = keeb.get()] {
+        auto PKEEB = keeb->m_self.lock();
 
-         onKeyboardMod(PKEEB);
+        onKeyboardMod(PKEEB);
 
-         if (PKEEB->m_enabled)
-             PROTO::idle->onActivity();
+        if (PKEEB->m_enabled)
+            PROTO::idle->onActivity();
 
-         if (PKEEB->m_enabled && *PDPMS && !g_pCompositor->m_dpmsStateOn) // NOLINTNEXTLINE
-             (void)Config::Actions::dpms(Config::Actions::TOGGLE_ACTION_ENABLE, std::nullopt);
-     });
+        if (PKEEB->m_enabled && *PDPMS && !g_pCompositor->m_dpmsStateOn) // NOLINTNEXTLINE
+            (void)Config::Actions::dpms(Config::Actions::TOGGLE_ACTION_ENABLE, std::nullopt);
+    });
 
     keeb->m_keyboardEvents.keymap.listenStatic([keeb = keeb.get()] {
         auto       PKEEB  = keeb->m_self.lock();
