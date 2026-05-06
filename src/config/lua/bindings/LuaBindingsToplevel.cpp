@@ -363,13 +363,13 @@ static int hlOn(lua_State* L) {
 }
 
 static int hlUnbind(lua_State* L) {
-    if (lua_isstring(L, 1) && std::string_view(lua_tostring(L, 1)) == "all" && lua_gettop(L) == 1) {
-        g_pKeybindManager->clearKeybinds();
+    if (lua_gettop(L) == 1 && lua_isstring(L, 1) && std::string_view(lua_tostring(L, 1)) == "all") {
+        Config::Lua::postToMain([]() { g_pKeybindManager->clearKeybinds(); });
         return 0;
     }
 
-    const char* str = luaL_checkstring(L, 1);
-    g_pKeybindManager->removeKeybind(str);
+    std::string str = luaL_checkstring(L, 1);
+    Config::Lua::postToMain([str]() { g_pKeybindManager->removeKeybind(str); });
 
     return 0;
 }
@@ -407,36 +407,36 @@ static int hlTimer(lua_State* L) {
     auto timer = makeShared<CEventLoopTimer>(
         std::chrono::milliseconds(timeoutMs),
         [L, ref, repeat, timeoutMs, mgr](SP<CEventLoopTimer> self, void* data) {
-            // update repeat already so that if we call set_timeout inside
-            // our timer it doesn't get overwritten
+            lua_State* co     = lua_newthread(L);
+            int        co_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+            lua_rawgeti(co, LUA_REGISTRYINDEX, ref);
+
             if (repeat)
                 self->updateTimeout(std::chrono::milliseconds(timeoutMs));
 
-            lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
-            int status = LUA_OK;
-            if (mgr)
-                status = mgr->guardedPCall(0, 0, 0, CConfigManager::LUA_TIMEOUT_TIMER_CALLBACK_MS, "hl.timer callback");
-            else
-                status = lua_pcall(L, 0, 0, 0);
+            int nres   = 0;
+            int status = lua_resume(co, L, 0, &nres);
 
-            if (status != LUA_OK) {
-                Log::logger->log(Log::ERR, "[Lua] error in timer callback: {}", lua_tostring(L, -1));
-                lua_pop(L, 1);
+            if (status != LUA_OK && status != LUA_YIELD) {
+                Log::logger->log(Log::ERR, "[Lua] Timer error: {}", lua_tostring(co, -1));
             }
 
-            if (!repeat) {
-                const auto HAS = std::ranges::find_if(mgr->m_luaTimers, [&self](const auto& lt) { return lt.timer == self; }) != mgr->m_luaTimers.end();
-
-                // avoid double-unref if this timer triggered a reload
-                if (HAS) {
-                    luaL_unref(L, LUA_REGISTRYINDEX, ref);
-                    std::erase_if(mgr->m_luaTimers, [&self](const auto& lt) { return lt.timer == self; });
+            if (status != LUA_YIELD) {
+                luaL_unref(L, LUA_REGISTRYINDEX, co_ref);
+                if (!repeat) {
+                    auto it = std::ranges::find_if(mgr->m_luaTimers, [&](const auto& lt) { return lt.timer == self; });
+                    if (it != mgr->m_luaTimers.end()) {
+                        luaL_unref(L, LUA_REGISTRYINDEX, ref);
+                        mgr->m_luaTimers.erase(it);
+                    }
                 }
             }
         },
         nullptr);
 
     mgr->m_luaTimers.emplace_back(CConfigManager::SLuaTimer{timer, ref});
+
     if (g_pEventLoopManager)
         g_pEventLoopManager->addTimer(timer);
 

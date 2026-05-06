@@ -1,6 +1,7 @@
 #include "LuaProcessExecutor.hpp"
 #include "../../debug/log/Logger.hpp"
 #include "../../helpers/MainLoopExecutor.hpp"
+#include "managers/eventLoop/EventLoopManager.hpp"
 
 #include <atomic>
 #include <condition_variable>
@@ -18,8 +19,12 @@ namespace Config::Lua {
     constexpr int WORKER_COUNT = 4;
 
     void          postToMain(std::function<void()>&& fn) {
-        auto* ex = new CMainLoopExecutor(std::move(fn));
-        ex->signal();
+        if (!g_pEventLoopManager) {
+            fn();
+            return;
+        }
+
+        g_pEventLoopManager->doLater(std::move(fn));
     }
 
 }

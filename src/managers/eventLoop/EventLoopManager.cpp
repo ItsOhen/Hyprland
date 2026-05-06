@@ -212,10 +212,10 @@ void CEventLoopManager::nudgeTimers() {
     timerfd_settime(m_timers.timerfd.get(), TFD_TIMER_ABSTIME, &ts, nullptr);
 }
 
-uint64_t CEventLoopManager::doLater(const std::function<void()>& fn) {
+uint64_t CEventLoopManager::doLater(std::function<void()> fn) {
     const uint64_t NEW_SEQ = ++LAST_DO_LATER_SEQ;
 
-    m_idle.fns.emplace_back(std::make_pair<>(NEW_SEQ, fn));
+    m_idle.fns.emplace_back(NEW_SEQ, std::move(fn));
 
     if (m_idle.eventSource)
         return NEW_SEQ;
@@ -224,9 +224,10 @@ uint64_t CEventLoopManager::doLater(const std::function<void()>& fn) {
         m_wayland.loop,
         [](void* data) {
             auto IDLE = sc<CEventLoopManager::SIdleData*>(data);
-            auto fns  = std::move(IDLE->fns);
-            IDLE->fns.clear();
+
+            auto fns          = std::move(IDLE->fns);
             IDLE->eventSource = nullptr;
+
             for (auto& f : fns) {
                 if (f.second)
                     f.second();
