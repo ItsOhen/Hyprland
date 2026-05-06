@@ -10,6 +10,6 @@ namespace Config::Lua::Objects {
         static void push(lua_State* L, PHLWINDOW w);
 
       public:
-        static std::shared_ptr<LuaSchema<PHLWINDOW>> s_schema;
+        static SP<LuaSchema<PHLWINDOW>> s_schema;
     };
 }

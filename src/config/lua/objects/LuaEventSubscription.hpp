@@ -10,6 +10,6 @@ namespace Config::Lua::Objects {
         static void push(lua_State* L, CLuaEventHandler* handler, uint64_t handle);
 
       public:
-        static std::shared_ptr<LuaSchema<uint64_t>> s_schema;
+        static SP<LuaSchema<uint64_t>> s_schema;
     };
 }

@@ -11,6 +11,6 @@ namespace Config::Lua::Objects {
         static void push(lua_State* L, PHLWORKSPACEREF ws);
 
       public:
-        static std::shared_ptr<LuaSchema<PHLWORKSPACE>> s_schema;
+        static SP<LuaSchema<PHLWORKSPACE>> s_schema;
     };
 }

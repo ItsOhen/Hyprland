@@ -21,9 +21,9 @@
 
 using namespace Config::Lua;
 
-static constexpr const char*                   MT = "HL.Window";
+static constexpr const char*      MT = "HL.Window";
 
-std::shared_ptr<Objects::LuaSchema<PHLWINDOW>> Objects::CLuaWindow::s_schema;
+SP<Objects::LuaSchema<PHLWINDOW>> Objects::CLuaWindow::s_schema;
 
 //
 static int getFocusHistoryID(PHLWINDOW wnd) {
@@ -80,7 +80,7 @@ static int windowPairs(lua_State* L) {
 }
 
 void Objects::CLuaWindow::setup(lua_State* L) {
-    Objects::CLuaWindow::s_schema = std::make_shared<LuaSchema<PHLWINDOW>>();
+    Objects::CLuaWindow::s_schema = makeShared<LuaSchema<PHLWINDOW>>();
 
     Objects::CLuaWindow::s_schema->addProperty("address", [](lua_State* L, PHLWINDOW w) {
         lua_pushstring(L, std::format("0x{:x}", reinterpret_cast<uintptr_t>(w.get())).c_str());

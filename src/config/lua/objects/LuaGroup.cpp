@@ -9,12 +9,11 @@
 
 using namespace Config::Lua;
 
-static constexpr const char* MT = "HL.Group";
+static constexpr const char*                      MT = "HL.Group";
 
-// Global schema for LuaGroup (initialized in setup)
-std::shared_ptr<Objects::LuaSchema<SP<Desktop::View::CGroup>>> Objects::CLuaGroup::s_schema;
+SP<Objects::LuaSchema<SP<Desktop::View::CGroup>>> Objects::CLuaGroup::s_schema;
 
-static int                   groupEq(lua_State* L) {
+static int                                        groupEq(lua_State* L) {
     const auto* lhs = sc<WP<Desktop::View::CGroup>*>(luaL_checkudata(L, 1, MT));
     const auto* rhs = sc<WP<Desktop::View::CGroup>*>(luaL_checkudata(L, 2, MT));
 
@@ -54,14 +53,12 @@ static int groupIndex(lua_State* L) {
 }
 
 static int groupPairs(lua_State* L) {
-    return Objects::createPairs<SP<Desktop::View::CGroup>, WP<Desktop::View::CGroup>>(
-        L, Objects::CLuaGroup::s_schema.get(), MT,
-        [](WP<Desktop::View::CGroup>* ref) { return ref->lock(); });
+    return Objects::createPairs<SP<Desktop::View::CGroup>, WP<Desktop::View::CGroup>>(L, Objects::CLuaGroup::s_schema.get(), MT,
+                                                                                      [](WP<Desktop::View::CGroup>* ref) { return ref->lock(); });
 }
 
 void Objects::CLuaGroup::setup(lua_State* L) {
-    // Create and populate the schema
-    Objects::CLuaGroup::s_schema = std::make_shared<LuaSchema<SP<Desktop::View::CGroup>>>();
+    Objects::CLuaGroup::s_schema = makeShared<LuaSchema<SP<Desktop::View::CGroup>>>();
 
     Objects::CLuaGroup::s_schema->addProperty("locked", [](lua_State* L, SP<Desktop::View::CGroup> group) {
         lua_pushboolean(L, group->locked());
@@ -106,13 +103,14 @@ void Objects::CLuaGroup::setup(lua_State* L) {
         return 1;
     });
 
-    registerMetatable(L, MT, {
-        {"__index",    groupIndex},
-        {"__gc",       gcRef<WP<Desktop::View::CGroup>>},
-        {"__eq",       groupEq},
-        {"__tostring", groupToString},
-        {"__pairs",    groupPairs},
-    });
+    registerMetatable(L, MT,
+                      {
+                          {"__index", groupIndex},
+                          {"__gc", gcRef<WP<Desktop::View::CGroup>>},
+                          {"__eq", groupEq},
+                          {"__tostring", groupToString},
+                          {"__pairs", groupPairs},
+                      });
 }
 
 void Objects::CLuaGroup::push(lua_State* L, SP<Desktop::View::CGroup> group) {

@@ -10,10 +10,9 @@
 
 using namespace Config::Lua;
 
-static constexpr const char* MT = "HL.Monitor";
+static constexpr const char*       MT = "HL.Monitor";
 
-// Static member definition
-std::shared_ptr<Objects::LuaSchema<PHLMONITOR>> Objects::CLuaMonitor::s_schema;
+SP<Objects::LuaSchema<PHLMONITOR>> Objects::CLuaMonitor::s_schema;
 
 //
 static int monitorEq(lua_State* L) {
@@ -56,14 +55,11 @@ static int monitorIndex(lua_State* L) {
 }
 
 static int monitorPairs(lua_State* L) {
-    return Objects::createPairs<PHLMONITOR, PHLMONITORREF>(
-        L, Objects::CLuaMonitor::s_schema.get(), MT,
-        [](PHLMONITORREF* ref) { return ref->lock(); });
+    return Objects::createPairs<PHLMONITOR, PHLMONITORREF>(L, Objects::CLuaMonitor::s_schema.get(), MT, [](PHLMONITORREF* ref) { return ref->lock(); });
 }
 
 void Objects::CLuaMonitor::setup(lua_State* L) {
-    // Create and populate the schema
-    Objects::CLuaMonitor::s_schema = std::make_shared<LuaSchema<PHLMONITOR>>();
+    Objects::CLuaMonitor::s_schema = makeShared<LuaSchema<PHLMONITOR>>();
 
     Objects::CLuaMonitor::s_schema->addProperty("id", [](lua_State* L, PHLMONITOR mon) {
         lua_pushinteger(L, sc<lua_Integer>(mon->m_id));

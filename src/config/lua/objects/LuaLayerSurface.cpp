@@ -10,10 +10,9 @@
 
 using namespace Config::Lua;
 
-static constexpr const char* MT = "HL.LayerSurface";
+static constexpr const char*  MT = "HL.LayerSurface";
 
-// Global schema for LuaLayerSurface (initialized in setup)
-std::shared_ptr<Objects::LuaSchema<PHLLS>> Objects::CLuaLayerSurface::s_schema;
+SP<Objects::LuaSchema<PHLLS>> Objects::CLuaLayerSurface::s_schema;
 
 //
 static int layerSurfaceEq(lua_State* L) {
@@ -56,14 +55,11 @@ static int layerSurfaceIndex(lua_State* L) {
 }
 
 static int layerSurfacePairs(lua_State* L) {
-    return Objects::createPairs<PHLLS, PHLLSREF>(
-        L, Objects::CLuaLayerSurface::s_schema.get(), MT,
-        [](PHLLSREF* ref) { return ref->lock(); });
+    return Objects::createPairs<PHLLS, PHLLSREF>(L, Objects::CLuaLayerSurface::s_schema.get(), MT, [](PHLLSREF* ref) { return ref->lock(); });
 }
 
 void Objects::CLuaLayerSurface::setup(lua_State* L) {
-    // Create and populate the schema
-    Objects::CLuaLayerSurface::s_schema = std::make_shared<LuaSchema<PHLLS>>();
+    Objects::CLuaLayerSurface::s_schema = makeShared<LuaSchema<PHLLS>>();
 
     Objects::CLuaLayerSurface::s_schema->addProperty("address", [](lua_State* L, PHLLS ls) {
         lua_pushstring(L, std::format("0x{:x}", reinterpret_cast<uintptr_t>(ls.get())).c_str());
@@ -129,13 +125,14 @@ void Objects::CLuaLayerSurface::setup(lua_State* L) {
         return 1;
     });
 
-    registerMetatable(L, MT, {
-        {"__index",    layerSurfaceIndex},
-        {"__gc",       gcRef<PHLLSREF>},
-        {"__eq",       layerSurfaceEq},
-        {"__tostring", layerSurfaceToString},
-        {"__pairs",    layerSurfacePairs},
-    });
+    registerMetatable(L, MT,
+                      {
+                          {"__index", layerSurfaceIndex},
+                          {"__gc", gcRef<PHLLSREF>},
+                          {"__eq", layerSurfaceEq},
+                          {"__tostring", layerSurfaceToString},
+                          {"__pairs", layerSurfacePairs},
+                      });
 }
 
 void Objects::CLuaLayerSurface::push(lua_State* L, PHLLS ls) {

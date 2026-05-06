@@ -6,10 +6,9 @@
 
 using namespace Config::Lua;
 
-static constexpr const char* MT = "HL.EventSubscription";
+static constexpr const char*     MT = "HL.EventSubscription";
 
-// Static member definition
-std::shared_ptr<Objects::LuaSchema<uint64_t>> Objects::CLuaEventSubscription::s_schema;
+SP<Objects::LuaSchema<uint64_t>> Objects::CLuaEventSubscription::s_schema;
 
 namespace {
     struct SEventSubscriptionRef {
@@ -71,25 +70,24 @@ static int eventSubscriptionIndex(lua_State* L) {
 
 static int eventSubscriptionPairs(lua_State* L) {
     auto* ref = sc<SEventSubscriptionRef*>(luaL_checkudata(L, 1, MT));
-    if (!ref->active) return 0;
-    
+    if (!ref->active)
+        return 0;
+
     // For EventSubscription, the "object" is just the handle (uint64_t)
-    return Objects::createPairs<uint64_t, SEventSubscriptionRef>(
-        L, Objects::CLuaEventSubscription::s_schema.get(), MT,
-        [ref](SEventSubscriptionRef*) { return ref->handle; });
+    return Objects::createPairs<uint64_t, SEventSubscriptionRef>(L, Objects::CLuaEventSubscription::s_schema.get(), MT, [ref](SEventSubscriptionRef*) { return ref->handle; });
 }
 
 void Objects::CLuaEventSubscription::setup(lua_State* L) {
-    // Create and populate the schema (empty in this case as only methods exist)
-    Objects::CLuaEventSubscription::s_schema = std::make_shared<LuaSchema<uint64_t>>();
+    Objects::CLuaEventSubscription::s_schema = makeShared<LuaSchema<uint64_t>>();
 
-    registerMetatable(L, MT, {
-        {"__index",    eventSubscriptionIndex},
-        {"__gc",       gcRef<SEventSubscriptionRef>},
-        {"__eq",       eventSubscriptionEq},
-        {"__tostring", eventSubscriptionToString},
-        {"__pairs",    eventSubscriptionPairs},
-    });
+    registerMetatable(L, MT,
+                      {
+                          {"__index", eventSubscriptionIndex},
+                          {"__gc", gcRef<SEventSubscriptionRef>},
+                          {"__eq", eventSubscriptionEq},
+                          {"__tostring", eventSubscriptionToString},
+                          {"__pairs", eventSubscriptionPairs},
+                      });
 }
 
 void Objects::CLuaEventSubscription::push(lua_State* L, CLuaEventHandler* handler, uint64_t handle) {
