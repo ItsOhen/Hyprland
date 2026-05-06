@@ -35,6 +35,7 @@ extern "C" {
 namespace Desktop::Rule {
     class CWindowRule;
 }
+namespace CA = Config::Actions;
 
 namespace Config::Lua::Bindings::Internal {
 
@@ -211,12 +212,12 @@ namespace Config::Lua::Bindings::Internal {
     void            registerDispatcherBindings(lua_State* L);
     SDispatchResult dispatchResultFromLua(lua_State* L, int idx);
 
-    inline auto logLevelForActionError(CA::eActionErrorLevel level) {
+    inline auto     logLevelForActionError(CA::eActionErrorLevel level) {
         switch (level) {
-            case CA::eActionErrorLevel::SILENT:  return Log::DEBUG;
-            case CA::eActionErrorLevel::INFO:    return Log::INFO;
+            case CA::eActionErrorLevel::SILENT: return Log::DEBUG;
+            case CA::eActionErrorLevel::INFO: return Log::INFO;
             case CA::eActionErrorLevel::WARNING: return Log::WARN;
-            case CA::eActionErrorLevel::ERROR:   return Log::ERR;
+            case CA::eActionErrorLevel::ERROR: return Log::ERR;
         }
         return Log::ERR;
     }
