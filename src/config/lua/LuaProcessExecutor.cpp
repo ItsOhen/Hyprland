@@ -13,7 +13,7 @@
 
 using namespace Config::Lua;
 
-namespace {
+namespace Config::Lua {
 
     constexpr int WORKER_COUNT = 4;
 
