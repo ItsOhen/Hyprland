@@ -390,37 +390,26 @@ static int hlTimer(lua_State* L) {
     luaL_checktype(L, 2, LUA_TTABLE);
 
     lua_getfield(L, 2, "timeout");
-    if (!lua_isnumber(L, -1))
-        return Internal::configError(L, "hl.timer: opts.timeout must be a number (ms)");
-    int timeoutMs = (int)lua_tonumber(L, -1);
+    int timeoutMs = (int)luaL_checknumber(L, -1);
     lua_pop(L, 1);
-
-    if (timeoutMs <= 0)
-        return Internal::configError(L, "hl.timer: opts.timeout must be > 0");
 
     lua_getfield(L, 2, "type");
-    if (!lua_isstring(L, -1))
-        return Internal::configError(L, "hl.timer: opts.type must be \"repeat\" or \"oneshot\"");
-    std::string type = lua_tostring(L, -1);
+    std::string type = luaL_checkstring(L, -1);
     lua_pop(L, 1);
 
-    bool repeat = false;
-    if (type == "repeat")
-        repeat = true;
-    else if (type != "oneshot")
-        return Internal::configError(L, "hl.timer: opts.type must be \"repeat\" or \"oneshot\"");
+    bool repeat = (type == "repeat");
 
     lua_pushvalue(L, 1);
-    int  ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    int        fnRef = luaL_ref(L, LUA_REGISTRYINDEX);
+
+    lua_State* co    = lua_newthread(L);
+    int        coRef = luaL_ref(L, LUA_REGISTRYINDEX);
+
+    lua_rawgeti(co, LUA_REGISTRYINDEX, fnRef);
 
     auto timer = makeShared<CEventLoopTimer>(
         std::chrono::milliseconds(timeoutMs),
-        [L, ref, repeat, timeoutMs, mgr](SP<CEventLoopTimer> self, void* data) {
-            lua_State* co     = lua_newthread(L);
-            int        co_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-
-            lua_rawgeti(co, LUA_REGISTRYINDEX, ref);
-
+        [L, mgr, fnRef, coRef, co, repeat, timeoutMs](SP<CEventLoopTimer> self, void* data) {
             if (repeat)
                 self->updateTimeout(std::chrono::milliseconds(timeoutMs));
 
@@ -432,19 +421,18 @@ static int hlTimer(lua_State* L) {
             }
 
             if (status != LUA_YIELD) {
-                luaL_unref(L, LUA_REGISTRYINDEX, co_ref);
-                if (!repeat) {
-                    auto it = std::ranges::find_if(mgr->m_luaTimers, [&](const auto& lt) { return lt.timer == self; });
-                    if (it != mgr->m_luaTimers.end()) {
-                        luaL_unref(L, LUA_REGISTRYINDEX, ref);
-                        mgr->m_luaTimers.erase(it);
-                    }
+                luaL_unref(L, LUA_REGISTRYINDEX, coRef);
+                luaL_unref(L, LUA_REGISTRYINDEX, fnRef);
+
+                auto it = std::ranges::find_if(mgr->m_luaTimers, [&](const auto& lt) { return lt.timer == self; });
+                if (it != mgr->m_luaTimers.end()) {
+                    mgr->m_luaTimers.erase(it);
                 }
             }
         },
         nullptr);
 
-    mgr->m_luaTimers.emplace_back(CConfigManager::SLuaTimer{timer, ref});
+    mgr->m_luaTimers.emplace_back(CConfigManager::SLuaTimer{timer, fnRef, coRef, co});
 
     if (g_pEventLoopManager)
         g_pEventLoopManager->addTimer(timer);

@@ -124,7 +124,9 @@ namespace Config::Lua {
 
         struct SLuaTimer {
             SP<CEventLoopTimer> timer;
-            int                 luaRef = LUA_NOREF; // registry ref to the lua callback
+            int                 luaRef = LUA_NOREF;
+            int                 coRef  = LUA_NOREF;
+            lua_State*          co     = nullptr;
         };
         std::vector<SLuaTimer>                               m_luaTimers;
 
