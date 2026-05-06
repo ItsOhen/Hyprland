@@ -7,9 +7,9 @@
 
 using namespace Config::Lua;
 
-static constexpr const char*                                        MT = "HL.WindowRule";
+static constexpr const char*                           MT = "HL.WindowRule";
 
-std::shared_ptr<Objects::LuaSchema<SP<Desktop::Rule::CWindowRule>>> Objects::CLuaWindowRule::s_schema;
+SP<Objects::LuaSchema<SP<Desktop::Rule::CWindowRule>>> Objects::CLuaWindowRule::s_schema;
 
 //
 static int windowRuleEq(lua_State* L) {
@@ -80,7 +80,7 @@ static int windowRulePairs(lua_State* L) {
 }
 
 void Objects::CLuaWindowRule::setup(lua_State* L) {
-    Objects::CLuaWindowRule::s_schema = std::make_shared<LuaSchema<SP<Desktop::Rule::CWindowRule>>>();
+    Objects::CLuaWindowRule::s_schema = makeShared<LuaSchema<SP<Desktop::Rule::CWindowRule>>>();
 
     registerMetatable(L, MT,
                       {

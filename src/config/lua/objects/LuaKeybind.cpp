@@ -6,10 +6,9 @@
 
 using namespace Config::Lua;
 
-static constexpr const char* MT = "HL.Keybind";
+static constexpr const char*         MT = "HL.Keybind";
 
-// Global schema for LuaKeybind (initialized in setup)
-std::shared_ptr<Objects::LuaSchema<SP<SKeybind>>> Objects::CLuaKeybind::s_schema;
+SP<Objects::LuaSchema<SP<SKeybind>>> Objects::CLuaKeybind::s_schema;
 
 namespace {
     std::optional<SP<SKeybind>> getKeybindFromUserdata(lua_State* L) {
@@ -120,14 +119,11 @@ static int keybindIndex(lua_State* L) {
 }
 
 static int keybindPairs(lua_State* L) {
-    return Objects::createPairs<SP<SKeybind>, WP<SKeybind>>(
-        L, Objects::CLuaKeybind::s_schema.get(), MT,
-        [](WP<SKeybind>* ref) { return ref->lock(); });
+    return Objects::createPairs<SP<SKeybind>, WP<SKeybind>>(L, Objects::CLuaKeybind::s_schema.get(), MT, [](WP<SKeybind>* ref) { return ref->lock(); });
 }
 
 void Objects::CLuaKeybind::setup(lua_State* L) {
-    // Create and populate the schema
-    Objects::CLuaKeybind::s_schema = std::make_shared<LuaSchema<SP<SKeybind>>>();
+    Objects::CLuaKeybind::s_schema = makeShared<LuaSchema<SP<SKeybind>>>();
 
     Objects::CLuaKeybind::s_schema->addProperty("enabled", [](lua_State* L, SP<SKeybind> keybind) {
         lua_pushboolean(L, keybind->enabled);
@@ -262,13 +258,14 @@ void Objects::CLuaKeybind::setup(lua_State* L) {
         return 1;
     });
 
-    registerMetatable(L, MT, {
-        {"__index",    keybindIndex},
-        {"__gc",       gcRef<WP<SKeybind>>},
-        {"__eq",       keybindEq},
-        {"__tostring", keybindToString},
-        {"__pairs",    keybindPairs},
-    });
+    registerMetatable(L, MT,
+                      {
+                          {"__index", keybindIndex},
+                          {"__gc", gcRef<WP<SKeybind>>},
+                          {"__eq", keybindEq},
+                          {"__tostring", keybindToString},
+                          {"__pairs", keybindPairs},
+                      });
 }
 
 void Objects::CLuaKeybind::push(lua_State* L, const SP<SKeybind>& keybind) {

@@ -10,6 +10,6 @@ namespace Config::Lua::Objects {
         static void push(lua_State* L, const SP<Desktop::Rule::CWindowRule>& rule);
 
       public:
-        static std::shared_ptr<LuaSchema<SP<Desktop::Rule::CWindowRule>>> s_schema;
+        static SP<LuaSchema<SP<Desktop::Rule::CWindowRule>>> s_schema;
     };
 }

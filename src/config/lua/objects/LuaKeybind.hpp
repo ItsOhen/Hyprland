@@ -10,6 +10,6 @@ namespace Config::Lua::Objects {
         static void push(lua_State* L, const SP<SKeybind>& keybind);
 
       public:
-        static std::shared_ptr<LuaSchema<SP<SKeybind>>> s_schema;
+        static SP<LuaSchema<SP<SKeybind>>> s_schema;
     };
 }

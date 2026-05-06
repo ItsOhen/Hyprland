@@ -10,6 +10,6 @@ namespace Config::Lua::Objects {
         static void push(lua_State* L, PHLMONITOR mon);
 
       public:
-        static std::shared_ptr<LuaSchema<PHLMONITOR>> s_schema;
+        static SP<LuaSchema<PHLMONITOR>> s_schema;
     };
 }

@@ -7,10 +7,9 @@
 
 using namespace Config::Lua;
 
-static constexpr const char* MT = "HL.LayerRule";
+static constexpr const char*                          MT = "HL.LayerRule";
 
-// Global schema for LuaLayerRule (initialized in setup)
-std::shared_ptr<Objects::LuaSchema<SP<Desktop::Rule::CLayerRule>>> Objects::CLuaLayerRule::s_schema;
+SP<Objects::LuaSchema<SP<Desktop::Rule::CLayerRule>>> Objects::CLuaLayerRule::s_schema;
 
 //
 static int layerRuleEq(lua_State* L) {
@@ -76,22 +75,21 @@ static int layerRuleIndex(lua_State* L) {
 }
 
 static int layerRulePairs(lua_State* L) {
-    return Objects::createPairs<SP<Desktop::Rule::CLayerRule>, WP<Desktop::Rule::CLayerRule>>(
-        L, Objects::CLuaLayerRule::s_schema.get(), MT,
-        [](WP<Desktop::Rule::CLayerRule>* ref) { return ref->lock(); });
+    return Objects::createPairs<SP<Desktop::Rule::CLayerRule>, WP<Desktop::Rule::CLayerRule>>(L, Objects::CLuaLayerRule::s_schema.get(), MT,
+                                                                                              [](WP<Desktop::Rule::CLayerRule>* ref) { return ref->lock(); });
 }
 
 void Objects::CLuaLayerRule::setup(lua_State* L) {
-    // Create and populate the schema (empty in this case as only methods exist)
-    Objects::CLuaLayerRule::s_schema = std::make_shared<LuaSchema<SP<Desktop::Rule::CLayerRule>>>();
+    Objects::CLuaLayerRule::s_schema = makeShared<LuaSchema<SP<Desktop::Rule::CLayerRule>>>();
 
-    registerMetatable(L, MT, {
-        {"__index",    layerRuleIndex},
-        {"__gc",       gcRef<WP<Desktop::Rule::CLayerRule>>},
-        {"__eq",       layerRuleEq},
-        {"__tostring", layerRuleToString},
-        {"__pairs",    layerRulePairs},
-    });
+    registerMetatable(L, MT,
+                      {
+                          {"__index", layerRuleIndex},
+                          {"__gc", gcRef<WP<Desktop::Rule::CLayerRule>>},
+                          {"__eq", layerRuleEq},
+                          {"__tostring", layerRuleToString},
+                          {"__pairs", layerRulePairs},
+                      });
 }
 
 void Objects::CLuaLayerRule::push(lua_State* L, const SP<Desktop::Rule::CLayerRule>& rule) {

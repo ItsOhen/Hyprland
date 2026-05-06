@@ -19,9 +19,9 @@
 
 using namespace Config::Lua;
 
-static constexpr const char*                      MT = "HL.Workspace";
+static constexpr const char*         MT = "HL.Workspace";
 
-std::shared_ptr<Objects::LuaSchema<PHLWORKSPACE>> Objects::CLuaWorkspace::s_schema;
+SP<Objects::LuaSchema<PHLWORKSPACE>> Objects::CLuaWorkspace::s_schema;
 
 //
 static int workspaceEq(lua_State* L) {
@@ -120,7 +120,7 @@ static int workspacePairs(lua_State* L) {
 }
 
 void Objects::CLuaWorkspace::setup(lua_State* L) {
-    Objects::CLuaWorkspace::s_schema = std::make_shared<LuaSchema<PHLWORKSPACE>>();
+    Objects::CLuaWorkspace::s_schema = makeShared<LuaSchema<PHLWORKSPACE>>();
 
     Objects::CLuaWorkspace::s_schema->addProperty("id", [](lua_State* L, PHLWORKSPACE ws) {
         lua_pushinteger(L, sc<lua_Integer>(ws->m_id));
