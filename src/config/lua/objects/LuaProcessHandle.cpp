@@ -8,23 +8,20 @@
 using namespace Config::Lua::Objects;
 
 namespace {
-    constexpr const char* MT_ASYNC_EXEC        = "HL.AsyncExec";
-    constexpr const char* REGISTRY_EV_HANDLER  = "HL.EventHandler";
+    constexpr const char* MT_ASYNC_EXEC       = "HL.AsyncExec";
+    constexpr const char* REGISTRY_EV_HANDLER = "HL.EventHandler";
 }
 
 static int asyncExecContinue(lua_State* L, int status, lua_KContext ctx) {
     (void)status;
     (void)ctx;
 
-    const int top = lua_gettop(L);
-    if (top >= 3) {
-        lua_pushvalue(L, top - 2);
-        lua_pushvalue(L, top - 1);
-        lua_pushvalue(L, top);
+    int nresults = lua_gettop(L);
+
+    if (nresults >= 3) {
         return 3;
     }
 
-    lua_settop(L, 0);
     lua_pushnil(L);
     lua_pushstring(L, "");
     lua_pushstring(L, "HL.AsyncExec: continuation stack underflow");
