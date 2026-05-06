@@ -3,8 +3,6 @@
 #include <hyprutils/string/String.hpp>
 #include <lua.h>
 
-#include "../../debug/log/Logger.hpp"
-
 #include "../../supplementary/executor/Executor.hpp"
 
 #include "../../../managers/SeatManager.hpp"
@@ -28,9 +26,9 @@ static constexpr auto C_NOTARGET = CA::eActionErrorCode::NO_TARGET;
 static constexpr auto C_UNAVAIL  = CA::eActionErrorCode::UNAVAILABLE;
 static constexpr auto C_EXECFAIL = CA::eActionErrorCode::EXECUTION_FAILED;
 
-static int dsp_moveCursorToCorner(lua_State* L) {
-    int corner = (int)lua_tonumber(L, lua_upvalueindex(1));
-    auto win = Internal::windowFromUpval(L, 2);
+static int            dsp_moveCursorToCorner(lua_State* L) {
+    int  corner = (int)lua_tonumber(L, lua_upvalueindex(1));
+    auto win    = Internal::windowFromUpval(L, 2);
     Config::Lua::postToMain([corner, win]() {
         auto result = CA::moveCursorToCorner(corner, win);
         if (!result)
@@ -61,7 +59,7 @@ static int dsp_toggleGroup(lua_State* L) {
 
 static int dsp_changeGroupActive(lua_State* L) {
     bool active = lua_toboolean(L, lua_upvalueindex(1));
-    auto win = Internal::windowFromUpval(L, 2);
+    auto win    = Internal::windowFromUpval(L, 2);
     Config::Lua::postToMain([active, win]() {
         auto result = CA::changeGroupActive(active, win);
         if (!result)
@@ -71,8 +69,8 @@ static int dsp_changeGroupActive(lua_State* L) {
 }
 
 static int dsp_setGroupActive(lua_State* L) {
-    int index = (int)lua_tonumber(L, lua_upvalueindex(1));
-    auto win = Internal::windowFromUpval(L, 2);
+    int  index = (int)lua_tonumber(L, lua_upvalueindex(1));
+    auto win   = Internal::windowFromUpval(L, 2);
     Config::Lua::postToMain([index, win]() {
         auto result = CA::setGroupActive(index, win);
         if (!result)
@@ -196,32 +194,38 @@ static int dsp_execCmd(lua_State* L) {
     if (!ruleRet)
         return ruleRet.error();
 
-    if (lua_pushthread(L) == 1) {
-        lua_pop(L, 1);
-        return Internal::dispatcherError(L, "Dispatcher must be called from a coroutine", ERR, C_UNKNOWN);
-    }
-    lua_pop(L, 1);
-
     auto*                          mgr  = CConfigManager::fromLuaState(L);
     SP<Desktop::Rule::CWindowRule> rule = std::move(*ruleRet);
 
-    Config::Lua::postToMain([L, proc, rule, mgr]() {
-        std::optional<uint64_t> pid;
-        if (rule)
-            pid = Config::Supplementary::executor()->spawn(Config::Supplementary::SExecRequest{.exec = proc, .rule = rule});
-        else
-            pid = Config::Supplementary::executor()->spawn(proc);
+    bool                           isCoroutine = lua_pushthread(L) == 0;
+    lua_pop(L, 1);
 
-        if (!pid.has_value())
-            lua_pushnil(L);
-        else
-            lua_pushinteger(L, (lua_Integer)*pid);
+    if (isCoroutine) {
+        Config::Lua::postToMain([L, proc, rule, mgr]() {
+            std::optional<uint64_t> pid;
+            if (rule)
+                pid = Config::Supplementary::executor()->spawn(Config::Supplementary::SExecRequest{.exec = proc, .rule = rule});
+            else
+                pid = Config::Supplementary::executor()->spawn(proc);
 
-        int nres = 0;
-        lua_resume(L, nullptr, 1, &nres);
-    });
+            if (!pid.has_value())
+                lua_pushnil(L);
+            else
+                lua_pushinteger(L, (lua_Integer)*pid);
 
-    return lua_yield(L, 0);
+            int nres = 0;
+            lua_resume(L, nullptr, 1, &nres);
+        });
+        return lua_yield(L, 0);
+    } else {
+        Config::Lua::postToMain([proc, rule]() {
+            if (rule)
+                Config::Supplementary::executor()->spawn(Config::Supplementary::SExecRequest{.exec = proc, .rule = rule});
+            else
+                Config::Supplementary::executor()->spawn(proc);
+        });
+        return Internal::pushSuccessResult(L);
+    }
 }
 
 static int dsp_execRaw(lua_State* L) {
@@ -270,7 +274,7 @@ static int dsp_submap(lua_State* L) {
 }
 
 static int dsp_pass(lua_State* L) {
-    const auto regex = lua_tostring(L, lua_upvalueindex(1));
+    const auto regex   = lua_tostring(L, lua_upvalueindex(1));
     const auto PWINDOW = g_pCompositor->getWindowByRegex(regex);
     if (!PWINDOW)
         return Internal::dispatcherError(L, "hl.pass: window not found", WARN, C_NOTFOUND);
@@ -294,7 +298,7 @@ static int dsp_layoutMsg(lua_State* L) {
 }
 
 static int dsp_dpms(lua_State* L) {
-    auto action = sc<CA::eTogglableAction>((int)lua_tonumber(L, lua_upvalueindex(1)));
+    auto        action  = sc<CA::eTogglableAction>((int)lua_tonumber(L, lua_upvalueindex(1)));
     std::string monName = lua_isnil(L, lua_upvalueindex(2)) ? "" : lua_tostring(L, lua_upvalueindex(2));
 
     Config::Lua::postToMain([action, monName]() {
@@ -480,18 +484,20 @@ static std::expected<uint32_t, std::string> resolveKeycode(const std::string& ke
 }
 
 static int dsp_sendShortcut(lua_State* L) {
-    const std::string modStr = lua_tostring(L, lua_upvalueindex(1));
-    const std::string key    = lua_tostring(L, lua_upvalueindex(2));
+    const std::string modStr      = lua_tostring(L, lua_upvalueindex(1));
+    const std::string key         = lua_tostring(L, lua_upvalueindex(2));
     const std::string winSelector = lua_isnil(L, lua_upvalueindex(3)) ? "" : lua_tostring(L, lua_upvalueindex(3));
 
     Config::Lua::postToMain([modStr, key, winSelector]() {
-        const uint32_t modMask = g_pKeybindManager->stringToModMask(modStr);
+        const uint32_t modMask       = g_pKeybindManager->stringToModMask(modStr);
         auto           keycodeResult = resolveKeycode(key);
-        if (!keycodeResult) return;
+        if (!keycodeResult)
+            return;
         PHLWINDOW window = nullptr;
         if (!winSelector.empty()) {
             window = g_pCompositor->getWindowByRegex(winSelector);
-            if (!window) return;
+            if (!window)
+                return;
         }
         auto result = CA::pass(modMask, *keycodeResult, window);
         if (!result)
@@ -501,19 +507,21 @@ static int dsp_sendShortcut(lua_State* L) {
 }
 
 static int dsp_sendKeyState(lua_State* L) {
-    const std::string modStr   = lua_tostring(L, lua_upvalueindex(1));
-    const std::string key       = lua_tostring(L, lua_upvalueindex(2));
-    const uint32_t    keyState = (uint32_t)lua_tonumber(L, lua_upvalueindex(3));
+    const std::string modStr      = lua_tostring(L, lua_upvalueindex(1));
+    const std::string key         = lua_tostring(L, lua_upvalueindex(2));
+    const uint32_t    keyState    = (uint32_t)lua_tonumber(L, lua_upvalueindex(3));
     const std::string winSelector = lua_isnil(L, lua_upvalueindex(4)) ? "" : lua_tostring(L, lua_upvalueindex(4));
 
     Config::Lua::postToMain([modStr, key, keyState, winSelector]() {
-        const uint32_t modMask = g_pKeybindManager->stringToModMask(modStr);
+        const uint32_t modMask       = g_pKeybindManager->stringToModMask(modStr);
         auto           keycodeResult = resolveKeycode(key);
-        if (!keycodeResult) return;
+        if (!keycodeResult)
+            return;
         PHLWINDOW window = nullptr;
         if (!winSelector.empty()) {
             window = g_pCompositor->getWindowByRegex(winSelector);
-            if (!window) return;
+            if (!window)
+                return;
         }
         auto result = CA::sendKeyState(modMask, *keycodeResult, keyState, window);
         if (!result)
@@ -566,7 +574,7 @@ static int dsp_moveToWorkspace(lua_State* L) {
         return Internal::dispatcherError(L, "Invalid workspace", ERR, C_INVARG);
 
     bool silent = lua_toboolean(L, lua_upvalueindex(2));
-    auto win = Internal::windowFromUpval(L, 3);
+    auto win    = Internal::windowFromUpval(L, 3);
     Config::Lua::postToMain([ws, silent, win]() {
         auto result = CA::moveToWorkspace(ws, silent, win);
         if (!result)
@@ -581,7 +589,7 @@ static int dsp_moveToMonitor(lua_State* L) {
         return Internal::dispatcherError(L, "Invalid monitor / monitor doesn't exist", ERR, C_INVARG);
 
     bool silent = lua_toboolean(L, lua_upvalueindex(2));
-    auto win = Internal::windowFromUpval(L, 3);
+    auto win    = Internal::windowFromUpval(L, 3);
     Config::Lua::postToMain([mon, silent, win]() {
         auto result = CA::moveToWorkspace(mon->m_activeWorkspace, silent, win);
         if (!result)
@@ -611,8 +619,8 @@ static int dsp_killWindow(lua_State* L) {
 }
 
 static int dsp_signalWindow(lua_State* L) {
-    int signal = (int)lua_tonumber(L, lua_upvalueindex(1));
-    auto win = Internal::windowFromUpval(L, 2);
+    int  signal = (int)lua_tonumber(L, lua_upvalueindex(1));
+    auto win    = Internal::windowFromUpval(L, 2);
     Config::Lua::postToMain([signal, win]() {
         auto result = CA::signalWindow(signal, win);
         if (!result)
@@ -623,7 +631,7 @@ static int dsp_signalWindow(lua_State* L) {
 
 static int dsp_floatWindow(lua_State* L) {
     auto action = sc<CA::eTogglableAction>((int)lua_tonumber(L, lua_upvalueindex(1)));
-    auto win = Internal::windowFromUpval(L, 2);
+    auto win    = Internal::windowFromUpval(L, 2);
     Config::Lua::postToMain([action, win]() {
         auto result = CA::floatWindow(action, win);
         if (!result)
@@ -634,7 +642,7 @@ static int dsp_floatWindow(lua_State* L) {
 
 static int dsp_fullscreenWindow(lua_State* L) {
     auto mode = sc<eFullscreenMode>((int)lua_tonumber(L, lua_upvalueindex(1)));
-    auto win = Internal::windowFromUpval(L, 2);
+    auto win  = Internal::windowFromUpval(L, 2);
     Config::Lua::postToMain([mode, win]() {
         auto result = CA::fullscreenWindow(mode, win);
         if (!result)
@@ -650,7 +658,8 @@ static int dsp_fullscreenWindowWithAction(lua_State* L) {
 
     Config::Lua::postToMain([mode, actionRaw, maybeW]() {
         const auto target = maybeW.value_or(Desktop::focusState()->window());
-        if (!target) return;
+        if (!target)
+            return;
         if (actionRaw == 0) {
             auto result = CA::fullscreenWindow(mode, maybeW);
             if (!result)
@@ -683,7 +692,8 @@ static int dsp_fullscreenState(lua_State* L) {
 
     Config::Lua::postToMain([desiredInternal, desiredClient, actionRaw, maybeW]() {
         const auto target = maybeW.value_or(Desktop::focusState()->window());
-        if (!target) return;
+        if (!target)
+            return;
         const auto CURRENT        = target->m_fullscreenState;
         const bool atDesiredState = CURRENT.internal == desiredInternal && CURRENT.client == desiredClient;
         if (actionRaw == 0) {
@@ -709,7 +719,7 @@ static int dsp_fullscreenState(lua_State* L) {
 
 static int dsp_pseudoWindow(lua_State* L) {
     auto action = sc<CA::eTogglableAction>((int)lua_tonumber(L, lua_upvalueindex(1)));
-    auto win = Internal::windowFromUpval(L, 2);
+    auto win    = Internal::windowFromUpval(L, 2);
     Config::Lua::postToMain([action, win]() {
         auto result = CA::pseudoWindow(action, win);
         if (!result)
@@ -756,7 +766,7 @@ static int dsp_cycleNext(lua_State* L) {
     int                 floatingRaw = (int)lua_tonumber(L, lua_upvalueindex(3));
     std::optional<bool> tiled       = tiledRaw < 0 ? std::nullopt : std::optional(tiledRaw > 0);
     std::optional<bool> floating    = floatingRaw < 0 ? std::nullopt : std::optional(floatingRaw > 0);
-    auto win = Internal::windowFromUpval(L, 4);
+    auto                win         = Internal::windowFromUpval(L, 4);
     Config::Lua::postToMain([next, tiled, floating, win]() {
         auto result = CA::cycleNext(next, tiled, floating, win);
         if (!result)
@@ -767,7 +777,7 @@ static int dsp_cycleNext(lua_State* L) {
 
 static int dsp_swapNext(lua_State* L) {
     bool next = lua_toboolean(L, lua_upvalueindex(1));
-    auto win = Internal::windowFromUpval(L, 2);
+    auto win  = Internal::windowFromUpval(L, 2);
     Config::Lua::postToMain([next, win]() {
         auto result = CA::swapNext(next, win);
         if (!result)
@@ -777,7 +787,7 @@ static int dsp_swapNext(lua_State* L) {
 }
 
 static int dsp_swapWithWindow(lua_State* L) {
-    auto source = Internal::windowFromUpval(L, 1);
+    auto       source         = Internal::windowFromUpval(L, 1);
     const auto targetSelector = lua_tostring(L, lua_upvalueindex(2));
     Config::Lua::postToMain([source, targetSelector]() {
         const auto target = g_pCompositor->getWindowByRegex(targetSelector);
@@ -792,7 +802,7 @@ static int dsp_swapWithWindow(lua_State* L) {
 
 static int dsp_tagWindow(lua_State* L) {
     std::string tag = lua_tostring(L, lua_upvalueindex(1));
-    auto win = Internal::windowFromUpval(L, 2);
+    auto        win = Internal::windowFromUpval(L, 2);
     Config::Lua::postToMain([tag, win]() {
         auto result = CA::tag(tag, win);
         if (!result)
@@ -823,93 +833,10 @@ static int dsp_bringToTop(lua_State* L) {
     return Internal::pushSuccessResult(L);
 }
 
-static int dsp_moveCursorToCorner(lua_State* L) {
-    int corner = (int)lua_tonumber(L, lua_upvalueindex(1));
-    auto win = Internal::windowFromUpval(L, 2);
-    Config::Lua::postToMain([corner, win]() {
-        auto result = CA::moveCursorToCorner(corner, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
-}
-
-static int dsp_moveCursor(lua_State* L) {
-    Vector2D vec{lua_tonumber(L, lua_upvalueindex(1)), lua_tonumber(L, lua_upvalueindex(2))};
-    Config::Lua::postToMain([vec]() {
-        auto result = CA::moveCursor(vec);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
-}
-
-static int dsp_toggleGroup(lua_State* L) {
-    auto win = Internal::windowFromUpval(L, 1);
-    Config::Lua::postToMain([win]() {
-        auto result = CA::toggleGroup(win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
-}
-
-static int dsp_changeGroupActive(lua_State* L) {
-    bool active = lua_toboolean(L, lua_upvalueindex(1));
-    auto win = Internal::windowFromUpval(L, 2);
-    Config::Lua::postToMain([active, win]() {
-        auto result = CA::changeGroupActive(active, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
-}
-
-static int dsp_setGroupActive(lua_State* L) {
-    int index = (int)lua_tonumber(L, lua_upvalueindex(1));
-    auto win = Internal::windowFromUpval(L, 2);
-    Config::Lua::postToMain([index, win]() {
-        auto result = CA::setGroupActive(index, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
-}
-
-static int dsp_moveGroupWindow(lua_State* L) {
-    bool forward = lua_toboolean(L, lua_upvalueindex(1));
-    Config::Lua::postToMain([forward]() {
-        auto result = CA::moveGroupWindow(forward);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
-}
-
-static int dsp_lockGroups(lua_State* L) {
-    auto action = sc<CA::eTogglableAction>((int)lua_tonumber(L, lua_upvalueindex(1)));
-    Config::Lua::postToMain([action]() {
-        auto result = CA::lockGroups(action);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
-}
-
-static int dsp_lockActiveGroup(lua_State* L) {
-    auto action = sc<CA::eTogglableAction>((int)lua_tonumber(L, lua_upvalueindex(1)));
-    Config::Lua::postToMain([action]() {
-        auto result = CA::lockActiveGroup(action);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
-}
-
 static int dsp_resize(lua_State* L) {
     Vector2D value{lua_tonumber(L, lua_upvalueindex(1)), lua_tonumber(L, lua_upvalueindex(2))};
-    bool relative = lua_toboolean(L, lua_upvalueindex(3));
-    auto win = Internal::windowFromUpval(L, 4);
+    bool     relative = lua_toboolean(L, lua_upvalueindex(3));
+    auto     win      = Internal::windowFromUpval(L, 4);
     Config::Lua::postToMain([value, relative, win]() {
         auto result = CA::resize(value, relative, win);
         if (!result)
@@ -920,8 +847,8 @@ static int dsp_resize(lua_State* L) {
 
 static int dsp_move(lua_State* L) {
     Vector2D value{lua_tonumber(L, lua_upvalueindex(1)), lua_tonumber(L, lua_upvalueindex(2))};
-    bool relative = lua_toboolean(L, lua_upvalueindex(3));
-    auto win = Internal::windowFromUpval(L, 4);
+    bool     relative = lua_toboolean(L, lua_upvalueindex(3));
+    auto     win      = Internal::windowFromUpval(L, 4);
     Config::Lua::postToMain([value, relative, win]() {
         auto result = CA::move(value, relative, win);
         if (!result)
@@ -932,7 +859,7 @@ static int dsp_move(lua_State* L) {
 
 static int dsp_pinWindow(lua_State* L) {
     auto action = sc<CA::eTogglableAction>((int)lua_tonumber(L, lua_upvalueindex(1)));
-    auto win = Internal::windowFromUpval(L, 2);
+    auto win    = Internal::windowFromUpval(L, 2);
     Config::Lua::postToMain([action, win]() {
         auto result = CA::pinWindow(action, win);
         if (!result)
@@ -941,18 +868,9 @@ static int dsp_pinWindow(lua_State* L) {
     return Internal::pushSuccessResult(L);
 }
 
-static int dsp_bringToTop(lua_State* L) {
-    Config::Lua::postToMain([]() {
-        auto result = CA::alterZOrder("top");
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
-}
-
 static int dsp_alterZOrder(lua_State* L) {
     std::string mode = lua_tostring(L, lua_upvalueindex(1));
-    auto win = Internal::windowFromUpval(L, 2);
+    auto        win  = Internal::windowFromUpval(L, 2);
     Config::Lua::postToMain([mode, win]() {
         auto result = CA::alterZOrder(mode, win);
         if (!result)
@@ -962,9 +880,9 @@ static int dsp_alterZOrder(lua_State* L) {
 }
 
 static int dsp_setProp(lua_State* L) {
-    std::string prop = lua_tostring(L, lua_upvalueindex(1));
+    std::string prop  = lua_tostring(L, lua_upvalueindex(1));
     std::string value = lua_tostring(L, lua_upvalueindex(2));
-    auto win = Internal::windowFromUpval(L, 3);
+    auto        win   = Internal::windowFromUpval(L, 3);
     Config::Lua::postToMain([prop, value, win]() {
         auto result = CA::setProp(prop, value, win);
         if (!result)
@@ -1593,7 +1511,7 @@ static int dsp_toggleSpecial(lua_State* L) {
 }
 
 static int dsp_renameWorkspace(lua_State* L) {
-    std::string id = lua_tostring(L, lua_upvalueindex(1));
+    std::string id   = lua_tostring(L, lua_upvalueindex(1));
     std::string name = lua_isnil(L, lua_upvalueindex(2)) ? "" : lua_tostring(L, lua_upvalueindex(2));
     Config::Lua::postToMain([id, name]() {
         const auto PWS = g_pCompositor->getWorkspaceByString(id);
@@ -1607,15 +1525,18 @@ static int dsp_renameWorkspace(lua_State* L) {
 }
 
 static int dsp_moveWorkspaceToMonitor(lua_State* L) {
-    std::string wsStr = lua_tostring(L, lua_upvalueindex(1)));
+    std::string wsStr  = lua_tostring(L, lua_upvalueindex(1));
     std::string monStr = lua_tostring(L, lua_upvalueindex(2));
     Config::Lua::postToMain([wsStr, monStr]() {
         const auto WORKSPACEID = getWorkspaceIDNameFromString(wsStr).id;
-        if (WORKSPACEID == WORKSPACE_INVALID) return;
+        if (WORKSPACEID == WORKSPACE_INVALID)
+            return;
         const auto PWORKSPACE = g_pCompositor->getWorkspaceByID(WORKSPACEID);
-        if (!PWORKSPACE) return;
+        if (!PWORKSPACE)
+            return;
         const auto PMONITOR = g_pCompositor->getMonitorFromString(monStr);
-        if (!PMONITOR) return;
+        if (!PMONITOR)
+            return;
         auto result = CA::moveToMonitor(PWORKSPACE, PMONITOR);
         if (!result)
             Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
@@ -1624,12 +1545,14 @@ static int dsp_moveWorkspaceToMonitor(lua_State* L) {
 }
 
 static int dsp_moveCurrentWorkspaceToMonitor(lua_State* L) {
-    std::string monStr = lua_tostring(L, lua_upvalueindex(1)));
+    std::string monStr = lua_tostring(L, lua_upvalueindex(1));
     Config::Lua::postToMain([monStr]() {
         const auto PMONITOR = g_pCompositor->getMonitorFromString(monStr);
-        if (!PMONITOR) return;
+        if (!PMONITOR)
+            return;
         const auto PCURRENTWORKSPACE = Desktop::focusState()->monitor()->m_activeWorkspace;
-        if (!PCURRENTWORKSPACE) return;
+        if (!PCURRENTWORKSPACE)
+            return;
         auto result = CA::moveToMonitor(PCURRENTWORKSPACE, PMONITOR);
         if (!result)
             Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
@@ -1638,8 +1561,8 @@ static int dsp_moveCurrentWorkspaceToMonitor(lua_State* L) {
 }
 
 static int dsp_swapActiveWorkspaces(lua_State* L) {
-    std::string mon1Str = lua_tostring(L, lua_upvalueindex(1)));
-    std::string mon2Str = lua_tostring(L, lua_upvalueindex(2)));
+    std::string mon1Str = lua_tostring(L, lua_upvalueindex(1));
+    std::string mon2Str = lua_tostring(L, lua_upvalueindex(2));
     Config::Lua::postToMain([mon1Str, mon2Str]() {
         const auto PMON1 = g_pCompositor->getMonitorFromString(mon1Str);
         const auto PMON2 = g_pCompositor->getMonitorFromString(mon2Str);

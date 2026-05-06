@@ -320,35 +320,67 @@ static int hlExecCmd(lua_State* L) {
 }
 
 static int hlDispatch(lua_State* L) {
-    if (!lua_isfunction(L, 1))
-        return Internal::configError(L, "hl.dispatch: expected a dispatcher function");
-
-    auto* mgr = CConfigManager::fromLuaState(L);
-    if (!mgr)
-        return 0;
-
-    lua_pushvalue(L, 1);
-
-    int status = lua_pcall(L, 0, 1, 0);
-
-    if (status != LUA_OK) {
-        const char* err = lua_tostring(L, -1);
-        std::string msg = std::format("hl.dispatch error: {}", err ? err : "unknown error");
+    if (lua_istable(L, 1)) {
+        lua_getfield(L, 1, "name");
+        bool hasName = lua_isstring(L, -1);
         lua_pop(L, 1);
-        return Internal::dispatcherError(L, msg, Config::Actions::eActionErrorLevel::ERROR, Config::Actions::eActionErrorCode::LUA_ERROR);
-    }
 
-    if (!lua_istable(L, -1)) {
+        if (!hasName) {
+            return Internal::pushSuccessResult(L);
+        }
+
+        lua_pushvalue(L, 1);
+    } else if (lua_isfunction(L, 1)) {
+        auto* mgr = CConfigManager::fromLuaState(L);
+        if (!mgr)
+            return 0;
+
+        lua_pushvalue(L, 1);
+
+        int status;
+        int nres = 0;
+        if (lua_pushthread(L) == 0) {
+            lua_pop(L, 1);
+            status = lua_resume(L, nullptr, 0, &nres);
+        } else {
+            lua_pop(L, 1);
+            status = lua_pcall(L, 0, 1, 0);
+            nres   = 1;
+        }
+
+        if (status == LUA_YIELD)
+            return Internal::pushSuccessResult(L);
+
+        if (status != LUA_OK) {
+            const char* err = lua_tostring(L, -1);
+            std::string msg = std::format("hl.dispatch error: {}", err ? err : "unknown error");
+            lua_pop(L, 1);
+            return Internal::dispatcherError(L, msg, Config::Actions::eActionErrorLevel::ERROR, Config::Actions::eActionErrorCode::LUA_ERROR);
+        }
+
+        if (nres == 0 || !lua_istable(L, -1)) {
+            if (nres > 0)
+                lua_pop(L, nres);
+            return Internal::pushSuccessResult(L);
+        }
+
+        lua_getfield(L, -1, "name");
+        bool hasName = lua_isstring(L, -1);
         lua_pop(L, 1);
-        return Internal::pushSuccessResult(L);
+
+        if (!hasName) {
+            lua_pop(L, 1);
+            return Internal::pushSuccessResult(L);
+        }
+    } else {
+        return Internal::configError(L, "hl.dispatch: expected a dispatcher function or result table");
     }
 
     std::string name = "";
     std::string arg  = "";
 
     lua_getfield(L, -1, "name");
-    if (lua_isstring(L, -1))
-        name = lua_tostring(L, -1);
+    name = lua_tostring(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, -1, "arg");
@@ -358,14 +390,13 @@ static int hlDispatch(lua_State* L) {
 
     lua_pop(L, 1);
 
-    if (name.empty())
-        return Internal::pushSuccessResult(L);
-
-    Config::Lua::postToMain([name, arg]() {
-        if (g_pKeybindManager->m_dispatchers.contains(name)) {
-            g_pKeybindManager->m_dispatchers[name](arg);
-        }
-    });
+    if (!name.empty()) {
+        Config::Lua::postToMain([name, arg]() {
+            if (g_pKeybindManager->m_dispatchers.contains(name)) {
+                g_pKeybindManager->m_dispatchers[name](arg);
+            }
+        });
+    }
 
     return Internal::pushSuccessResult(L);
 }
