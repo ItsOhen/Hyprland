@@ -139,34 +139,64 @@ static int hlGroupLockActive(lua_State* L) {
 }
 
 static int dsp_execCmd(lua_State* L) {
-    auto proc = lua_tostring(L, lua_upvalueindex(1));
-
-    if (std::string_view{proc}.empty())
-        return Internal::dispatcherError(L, "Invalid process string", ERR, C_INVARG);
-
-    std::optional<uint64_t> pid;
-    auto                    ruleRet = Internal::buildRuleFromTable(L, lua_upvalueindex(2));
+    std::string proc    = lua_tostring(L, lua_upvalueindex(1));
+    auto        ruleRet = Internal::buildRuleFromTable(L, lua_upvalueindex(2));
 
     if (!ruleRet)
         return ruleRet.error();
 
-    if (*ruleRet)
-        pid = Config::Supplementary::executor()->spawn(Config::Supplementary::SExecRequest{.exec = proc, .rule = std::move(*ruleRet)});
-    else
-        pid = Config::Supplementary::executor()->spawn(proc);
+    if (lua_pushthread(L) == 1) {
+        lua_pop(L, 1);
+        return Internal::dispatcherError(L, "Dispatcher must be called from a coroutine", ERR, C_UNKNOWN);
+    }
+    lua_pop(L, 1);
 
-    if (!pid.has_value())
-        return Internal::dispatcherError(L, "Failed to start process", ERR, C_EXECFAIL);
-    lua_pushinteger(L, (lua_Integer)*pid);
-    return 1;
+    auto*                          mgr  = CConfigManager::fromLuaState(L);
+    SP<Desktop::Rule::CWindowRule> rule = std::move(*ruleRet);
+
+    Config::Lua::postToMain([L, proc, rule, mgr]() {
+        std::optional<uint64_t> pid;
+        if (rule)
+            pid = Config::Supplementary::executor()->spawn(Config::Supplementary::SExecRequest{.exec = proc, .rule = rule});
+        else
+            pid = Config::Supplementary::executor()->spawn(proc);
+
+        if (!pid.has_value())
+            lua_pushnil(L);
+        else
+            lua_pushinteger(L, (lua_Integer)*pid);
+
+        int nres = 0;
+        lua_resume(L, nullptr, 1, &nres);
+    });
+
+    return lua_yield(L, 0);
 }
 
 static int dsp_execRaw(lua_State* L) {
-    auto proc = Config::Supplementary::executor()->spawnRaw(lua_tostring(L, lua_upvalueindex(1)));
-    if (!proc || !*proc)
-        return Internal::dispatcherError(L, "Failed to start process", ERR, C_EXECFAIL);
-    lua_pushinteger(L, (lua_Integer)*proc);
-    return 1;
+    std::string proc = lua_tostring(L, lua_upvalueindex(1));
+
+    if (lua_pushthread(L) == 1) {
+        lua_pop(L, 1);
+        return Internal::dispatcherError(L, "Dispatcher must be called from a coroutine", ERR, C_UNKNOWN);
+    }
+    lua_pop(L, 1);
+
+    auto* mgr = CConfigManager::fromLuaState(L);
+
+    Config::Lua::postToMain([L, proc, mgr]() {
+        auto pid = Config::Supplementary::executor()->spawnRaw(proc);
+
+        if (!pid || !*pid)
+            lua_pushnil(L);
+        else
+            lua_pushinteger(L, (lua_Integer)*pid);
+
+        int nres = 0;
+        lua_resume(L, nullptr, 1, &nres);
+    });
+
+    return lua_yield(L, 0);
 }
 
 static int dsp_exit(lua_State* L) {
