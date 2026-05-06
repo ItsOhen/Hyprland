@@ -580,3 +580,28 @@ bool Internal::hasTableField(lua_State* L, int tableIdx, const char* field) {
     lua_pop(L, 1);
     return true;
 }
+
+SDispatchResult Internal::dispatchResultFromLua(lua_State* L, int idx) {
+    SDispatchResult result;
+
+    if (!lua_istable(L, idx))
+        return result;
+
+    lua_getfield(L, idx, "pass_event");
+    result.passEvent = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, idx, "ok");
+    if (lua_isboolean(L, -1))
+        result.success = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    if (!result.success) {
+        lua_getfield(L, idx, "error");
+        if (lua_isstring(L, -1))
+            result.error = lua_tostring(L, -1);
+        lua_pop(L, 1);
+    }
+
+    return result;
+}

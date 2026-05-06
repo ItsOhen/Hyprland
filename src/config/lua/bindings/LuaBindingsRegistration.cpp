@@ -27,31 +27,6 @@ static int hlPrint(lua_State* L) {
     return 0;
 }
 
-static SDispatchResult dispatchResultFromLua(lua_State* L, int idx) {
-    SDispatchResult result;
-
-    if (!lua_istable(L, idx))
-        return result;
-
-    lua_getfield(L, idx, "pass_event");
-    result.passEvent = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, idx, "ok");
-    if (lua_isboolean(L, -1))
-        result.success = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-
-    if (!result.success) {
-        lua_getfield(L, idx, "error");
-        if (lua_isstring(L, -1))
-            result.error = lua_tostring(L, -1);
-        lua_pop(L, 1);
-    }
-
-    return result;
-}
-
 void Internal::registerBindingsImpl(lua_State* L, CConfigManager* mgr) {
     Objects::CLuaTimer{}.setup(L);
     Objects::CLuaEventSubscription{}.setup(L);
@@ -80,7 +55,7 @@ void Internal::registerBindingsImpl(lua_State* L, CConfigManager* mgr) {
             SDispatchResult result = {.success = true};
 
             if (nresults > 0) {
-                result = dispatchResultFromLua(co, -1);
+                result = Internal::dispatchResultFromLua(co, -1);
             }
 
             luaL_unref(L, LUA_REGISTRYINDEX, coRef);

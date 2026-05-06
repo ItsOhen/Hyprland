@@ -200,12 +200,13 @@ namespace Config::Lua::Bindings::Internal {
         return err;
     }
 
-    bool hasTableField(lua_State* L, int tableIdx, const char* field);
-    void registerToplevelBindings(lua_State* L, CConfigManager* mgr);
-    void registerLayoutBindings(lua_State* L, CConfigManager* mgr);
-    void registerQueryBindings(lua_State* L);
-    void registerNotificationBindings(lua_State* L);
-    void registerConfigRuleBindings(lua_State* L, CConfigManager* mgr);
-    void registerBindingsImpl(lua_State* L, CConfigManager* mgr);
-    void registerDispatcherBindings(lua_State* L);
+    bool            hasTableField(lua_State* L, int tableIdx, const char* field);
+    void            registerToplevelBindings(lua_State* L, CConfigManager* mgr);
+    void            registerLayoutBindings(lua_State* L, CConfigManager* mgr);
+    void            registerQueryBindings(lua_State* L);
+    void            registerNotificationBindings(lua_State* L);
+    void            registerConfigRuleBindings(lua_State* L, CConfigManager* mgr);
+    void            registerBindingsImpl(lua_State* L, CConfigManager* mgr);
+    void            registerDispatcherBindings(lua_State* L);
+    SDispatchResult dispatchResultFromLua(lua_State* L, int idx);
 }

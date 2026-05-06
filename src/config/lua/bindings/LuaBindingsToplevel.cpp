@@ -13,7 +13,6 @@
 #include <hyprutils/string/Numeric.hpp>
 #include <hyprutils/string/String.hpp>
 #include <hyprutils/string/VarList.hpp>
-#include <hyprutils/string/VarList.hpp>
 
 using namespace Config;
 using namespace Config::Lua;
@@ -321,28 +320,54 @@ static int hlExecCmd(lua_State* L) {
 }
 
 static int hlDispatch(lua_State* L) {
-    if (!Internal::pushDispatcherFunction(L, 1))
-        return Internal::configError(L, "hl.dispatch: expected a dispatcher (e.g. hl.dsp.window.close())");
+    if (!lua_isfunction(L, 1))
+        return Internal::configError(L, "hl.dispatch: expected a dispatcher function");
 
-    int status = LUA_OK;
-    if (auto* mgr = CConfigManager::fromLuaState(L); mgr)
-        status = mgr->guardedPCall(0, 1, 0, CConfigManager::LUA_TIMEOUT_DISPATCH_MS, "hl.dispatch");
-    else
-        status = lua_pcall(L, 0, 1, 0);
+    auto* mgr = CConfigManager::fromLuaState(L);
+    if (!mgr)
+        return 0;
+
+    lua_pushvalue(L, 1);
+
+    int status = lua_pcall(L, 0, 1, 0);
 
     if (status != LUA_OK) {
         const char* err = lua_tostring(L, -1);
+        std::string msg = std::format("hl.dispatch error: {}", err ? err : "unknown error");
         lua_pop(L, 1);
-        return Internal::dispatcherError(L, std::format("hl.dispatch: {}", err ? err : "unknown error"), Config::Actions::eActionErrorLevel::ERROR,
-                                         Config::Actions::eActionErrorCode::LUA_ERROR);
+        return Internal::dispatcherError(L, msg, Config::Actions::eActionErrorLevel::ERROR, Config::Actions::eActionErrorCode::LUA_ERROR);
     }
 
-    if (lua_isnil(L, -1)) {
+    if (!lua_istable(L, -1)) {
         lua_pop(L, 1);
         return Internal::pushSuccessResult(L);
     }
 
-    return 1;
+    std::string name = "";
+    std::string arg  = "";
+
+    lua_getfield(L, -1, "name");
+    if (lua_isstring(L, -1))
+        name = lua_tostring(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "arg");
+    if (lua_isstring(L, -1))
+        arg = lua_tostring(L, -1);
+    lua_pop(L, 1);
+
+    lua_pop(L, 1);
+
+    if (name.empty())
+        return Internal::pushSuccessResult(L);
+
+    Config::Lua::postToMain([name, arg]() {
+        if (g_pKeybindManager->m_dispatchers.contains(name)) {
+            g_pKeybindManager->m_dispatchers[name](arg);
+        }
+    });
+
+    return Internal::pushSuccessResult(L);
 }
 
 static int hlOn(lua_State* L) {
@@ -465,11 +490,11 @@ static int hlAsyncExecCmd(lua_State* L) {
     auto* handle = Objects::pushNewProcessHandle(L, cmd);
 
     lua_pushvalue(L, -1);
-    int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    int        ref = luaL_ref(L, LUA_REGISTRYINDEX);
 
     lua_State* lua = L;
 
-    uint64_t processId = mgr->m_processExecutor->spawnAsync(cmd, 30000, [lua, ref](const Config::Lua::SProcessResult& result) {
+    uint64_t   processId = mgr->m_processExecutor->spawnAsync(cmd, 30000, [lua, ref](const Config::Lua::SProcessResult& result) {
         const int stackTop = lua_gettop(lua);
 
         lua_rawgeti(lua, LUA_REGISTRYINDEX, ref);
