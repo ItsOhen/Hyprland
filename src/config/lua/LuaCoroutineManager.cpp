@@ -79,6 +79,10 @@ bool CLuaCoroutineManager::resumeThread(uint64_t threadId, const std::any& resul
 
     int nresults = 0;
     int status   = lua_resume(thread, m_lua, nargs, &nresults);
+    if (status != LUA_OK && status != LUA_YIELD) {
+        std::string err = lua_tostring(thread, -1) ? lua_tostring(thread, -1) : "unknown";
+        Log::logger->log(Log::ERR, "Lua Coroutine Error: {}", err);
+    }
     lua_pop(m_lua, 1);
 
     if (status != LUA_YIELD) {
