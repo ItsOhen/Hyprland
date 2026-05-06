@@ -38,7 +38,7 @@ class CEventLoopManager {
     void scheduleRecalc();
 
     // schedules a function to run later, aka in a wayland idle event. Returns a sequence which can be used to remove it.
-    uint64_t doLater(const std::function<void()>& fn);
+    uint64_t doLater(const std::function<void()> fn);
     void     removeDoLater(uint64_t seq);
 
     // automatically cleaned up doLater instance
