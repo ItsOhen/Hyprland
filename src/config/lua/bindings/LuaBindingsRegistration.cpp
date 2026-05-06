@@ -61,7 +61,8 @@ void Internal::registerBindingsImpl(lua_State* L, CConfigManager* mgr) {
     Objects::CLuaNotification{}.setup(L);
 
     g_pKeybindManager->m_dispatchers["__lua"] = [L, mgr](std::string arg) -> SDispatchResult {
-        int        ref   = std::stoi(arg);
+        int        ref = std::stoi(arg);
+
         lua_State* co    = lua_newthread(L);
         int        coRef = luaL_ref(L, LUA_REGISTRYINDEX);
 
@@ -75,17 +76,24 @@ void Internal::registerBindingsImpl(lua_State* L, CConfigManager* mgr) {
             return {.success = true};
         }
 
-        if (status != LUA_OK) {
-            Config::Lua::Bindings::Internal::reportError(L,
-                                                         Config::Actions::SActionError{std::format("error in keybind lambda: {}", lua_tostring(co, -1)),
-                                                                                       Config::Actions::eActionErrorLevel::ERROR, Config::Actions::eActionErrorCode::LUA_ERROR});
+        if (status == LUA_OK) {
+            SDispatchResult result = {.success = true};
+
+            if (nresults > 0) {
+                result = dispatchResultFromLua(co, -1);
+            }
 
             luaL_unref(L, LUA_REGISTRYINDEX, coRef);
-            return {.success = false, .error = "lua keybind error"};
+            return result;
         }
 
+        std::string errorMsg = lua_tostring(co, -1) ? lua_tostring(co, -1) : "unknown error";
+        Config::Lua::Bindings::Internal::reportError(L,
+                                                     Config::Actions::SActionError{std::format("error in keybind lambda: {}", errorMsg), Config::Actions::eActionErrorLevel::ERROR,
+                                                                                   Config::Actions::eActionErrorCode::LUA_ERROR});
+
         luaL_unref(L, LUA_REGISTRYINDEX, coRef);
-        return {.success = true};
+        return {.success = false, .error = "lua keybind error"};
     };
 
     lua_newtable(L);

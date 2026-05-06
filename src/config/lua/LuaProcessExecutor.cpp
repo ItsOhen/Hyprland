@@ -67,7 +67,7 @@ class CProcessExecutor::Impl {
 
         {
             std::lock_guard<std::mutex> lk(m_taskMutex);
-            m_tasks.push(std::move(task));
+            m_tasks.emplace(std::move(task));
         }
 
         m_cv.notify_one();
