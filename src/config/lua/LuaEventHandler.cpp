@@ -243,8 +243,7 @@ uint64_t CLuaEventHandler::yieldForProcess(lua_State* thread, uint64_t processId
         return 0;
     }
 
-    const uint64_t threadId =
-        mgr->m_coroutineManager->registerThread(thread, LUA_NOREF, LUA_THREAD_TAG_ASYNC_EXEC);
+    const uint64_t threadId   = mgr->m_coroutineManager->registerThread(thread, LUA_NOREF, LUA_THREAD_TAG_ASYNC_EXEC);
     m_asyncThreads[processId] = threadId;
 
     Log::logger->log(Log::DEBUG, "CLuaEventHandler::yieldForProcess: process {} → thread {}", processId, threadId);

@@ -32,12 +32,14 @@ namespace Config::Lua {
 
         // Store a Lua function (as a registry ref) to be called when `name` fires.
         // Returns a subscription handle, or std::nullopt if the event name is unknown.
-        std::optional<uint64_t>                       registerEvent(const std::string& name, int luaRef);
-        bool                                          unregisterEvent(uint64_t handle);
+        std::optional<uint64_t> registerEvent(const std::string& name, int luaRef);
+        bool                    unregisterEvent(uint64_t handle);
 
-        void                                          clearEvents();
+        void                    clearEvents();
 
-        lua_State*                                          getLuaState() const { return m_lua; }
+        lua_State*              getLuaState() const {
+            return m_lua;
+        }
 
         uint64_t                                      yieldForProcess(lua_State* thread, uint64_t processId);
 
@@ -60,7 +62,7 @@ namespace Config::Lua {
         size_t                                                 m_dispatchDepth = 0;
         std::vector<CHyprSignalListener>                       m_listeners;
 
-        std::unordered_map<uint64_t, uint64_t>                m_asyncThreads;
+        std::unordered_map<uint64_t, uint64_t>                 m_asyncThreads;
 
         static constexpr size_t                                MAX_DISPATCH_DEPTH = 32;
 
