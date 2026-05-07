@@ -71,24 +71,55 @@ bool CLuaCoroutineManager::resumeThread(uint64_t threadId, const std::any& resul
     int nargs = 0;
     if (result.type() == typeid(SProcessResult)) {
         const auto& res = std::any_cast<const SProcessResult&>(result);
-        lua_pushinteger(thread, res.exitCode);
-        lua_pushstring(thread, res.stdout.c_str());
-        lua_pushstring(thread, res.stderr.c_str());
-        nargs = 3;
+
+        // Kinda messy return, but should make it easier to work with in lua
+        lua_newtable(thread);
+
+        bool isSystemError = !res.error.empty();
+        bool isSuccess     = !isSystemError && !res.timedOut && res.exitCode == 0;
+
+        if (isSystemError) {
+            lua_pushstring(thread, "error");
+        } else if (res.timedOut) {
+            lua_pushstring(thread, "timeout");
+        } else {
+            lua_pushstring(thread, "success");
+        }
+        lua_setfield(thread, -2, "type");
+
+        lua_pushboolean(thread, isSuccess);
+        lua_setfield(thread, -2, "ok");
+
+        if (isSystemError) {
+            lua_pushstring(thread, res.error.c_str());
+            lua_setfield(thread, -2, "message");
+        } else {
+            lua_pushinteger(thread, res.exitCode);
+            lua_setfield(thread, -2, "ec");
+            lua_pushstring(thread, res.stdout.c_str());
+            lua_setfield(thread, -2, "out");
+            lua_pushstring(thread, res.stderr.c_str());
+            lua_setfield(thread, -2, "err");
+        }
+
+        nargs = 1;
     }
 
     int nresults = 0;
     int status   = lua_resume(thread, m_lua, nargs, &nresults);
+
     if (status != LUA_OK && status != LUA_YIELD) {
-        std::string err = lua_tostring(thread, -1) ? lua_tostring(thread, -1) : "unknown";
-        Log::logger->log(Log::ERR, "Lua Coroutine Error: {}", err);
+        const char* msg = lua_tostring(thread, -1);
+        Log::logger->log(Log::ERR, "Lua Coroutine Error: {}", msg ? msg : "unknown");
     }
+
     lua_pop(m_lua, 1);
 
     if (status != LUA_YIELD) {
         g_pEventLoopManager->doLater([this, data]() { luaL_unref(m_lua, LUA_REGISTRYINDEX, data.luaRef); });
-    } else
+    } else {
         m_threads[data.id] = std::move(data);
+    }
 
     return true;
 }
