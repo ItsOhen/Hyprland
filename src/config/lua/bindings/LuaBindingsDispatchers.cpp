@@ -187,10 +187,6 @@ static int hlGroupLockActive(lua_State* L) {
     return 1;
 }
 
-static int dsp_exec_continuation(lua_State* L, int status, lua_KContext ctx) {
-    return 1;
-}
-
 static int dsp_execCmd(lua_State* L) {
     std::string proc    = lua_tostring(L, lua_upvalueindex(1));
     auto        ruleRet = Internal::buildRuleFromTable(L, lua_upvalueindex(2));
@@ -198,63 +194,24 @@ static int dsp_execCmd(lua_State* L) {
     if (!ruleRet)
         return ruleRet.error();
 
-    auto*                          mgr  = CConfigManager::fromLuaState(L);
     SP<Desktop::Rule::CWindowRule> rule = std::move(*ruleRet);
 
-    bool                           isCoroutine = lua_pushthread(L) == 0;
-    lua_pop(L, 1);
+    Config::Lua::postToMain([proc, rule]() {
+        if (rule)
+            Config::Supplementary::executor()->spawn(Config::Supplementary::SExecRequest{.exec = proc, .rule = rule});
+        else
+            Config::Supplementary::executor()->spawn(proc);
+    });
 
-    if (isCoroutine) {
-        Config::Lua::postToMain([L, proc, rule, mgr]() {
-            std::optional<uint64_t> pid;
-            if (rule)
-                pid = Config::Supplementary::executor()->spawn(Config::Supplementary::SExecRequest{.exec = proc, .rule = rule});
-            else
-                pid = Config::Supplementary::executor()->spawn(proc);
-
-            if (!pid.has_value())
-                lua_pushnil(L);
-            else
-                lua_pushinteger(L, (lua_Integer)*pid);
-
-            int nres = 0;
-            lua_resume(L, nullptr, 1, &nres);
-        });
-
-        return lua_yieldk(L, 0, 0, dsp_exec_continuation);
-    } else {
-        Config::Lua::postToMain([proc, rule]() {
-            if (rule)
-                Config::Supplementary::executor()->spawn(Config::Supplementary::SExecRequest{.exec = proc, .rule = rule});
-            else
-                Config::Supplementary::executor()->spawn(proc);
-        });
-        return Internal::pushSuccessResult(L);
-    }
+    return Internal::pushSuccessResult(L);
 }
 
 static int dsp_execRaw(lua_State* L) {
     std::string proc = lua_tostring(L, lua_upvalueindex(1));
 
-    if (lua_pushthread(L) == 1) {
-        lua_pop(L, 1);
-        return Internal::dispatcherError(L, "Dispatcher must be called from a coroutine", ERR, C_UNKNOWN);
-    }
-    lua_pop(L, 1);
+    Config::Lua::postToMain([proc]() { Config::Supplementary::executor()->spawnRaw(proc); });
 
-    Config::Lua::postToMain([L, proc]() {
-        auto pid = Config::Supplementary::executor()->spawnRaw(proc);
-
-        if (!pid || !*pid)
-            lua_pushnil(L);
-        else
-            lua_pushinteger(L, (lua_Integer)*pid);
-
-        int nres = 0;
-        lua_resume(L, nullptr, 1, &nres);
-    });
-
-    return lua_yieldk(L, 0, 0, dsp_exec_continuation);
+    return Internal::pushSuccessResult(L);
 }
 
 static int dsp_exit(lua_State* L) {
