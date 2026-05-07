@@ -41,7 +41,12 @@ void Internal::registerBindingsImpl(lua_State* L, CConfigManager* mgr) {
         lua_State* co    = lua_newthread(L);
         int        coRef = luaL_ref(L, LUA_REGISTRYINDEX);
 
-        lua_rawgeti(co, LUA_REGISTRYINDEX, ref);
+        lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
+
+        if (Internal::pushDispatcherFunction(L, -1))
+            lua_remove(L, -2);
+
+        lua_xmove(L, co, 1);
 
         int nresults = 0;
         int status   = lua_resume(co, L, 0, &nresults);
@@ -53,10 +58,8 @@ void Internal::registerBindingsImpl(lua_State* L, CConfigManager* mgr) {
 
         if (status == LUA_OK) {
             SDispatchResult result = {.success = true};
-
-            if (nresults > 0) {
+            if (nresults > 0)
                 result = Internal::dispatchResultFromLua(co, -1);
-            }
 
             luaL_unref(L, LUA_REGISTRYINDEX, coRef);
             return result;
