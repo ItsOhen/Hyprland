@@ -7,11 +7,6 @@
 
 using namespace Config::Lua::Objects;
 
-namespace {
-    constexpr const char* MT_ASYNC_EXEC       = "HL.AsyncExec";
-    constexpr const char* REGISTRY_EV_HANDLER = "HL.EventHandler";
-}
-
 static int asyncExecContinue(lua_State* L, int status, lua_KContext ctx) {
     // Just the res table from resume
     return 1;
@@ -76,4 +71,27 @@ SLuaProcessHandle* Config::Lua::Objects::pushNewProcessHandle(lua_State* L, cons
 
 SLuaProcessHandle* Config::Lua::Objects::toProcessHandle(lua_State* L, int index) {
     return (SLuaProcessHandle*)luaL_testudata(L, index, MT_ASYNC_EXEC);
+}
+
+void Config::Lua::Objects::registerProcessResultMetatable(lua_State* L) {
+    luaL_newmetatable(L, MT_PROCESS_RESULT);
+
+    lua_pushcfunction(L, [](lua_State* L) -> int {
+        lua_getfield(L, 1, "type");
+        lua_getfield(L, 1, "ok");
+        const char* type = lua_tostring(L, -2);
+        bool        ok   = lua_toboolean(L, -1);
+
+        if (type && std::string(type) == "error") {
+            lua_getfield(L, 1, "message");
+            lua_pushfstring(L, "ProcessResult(ERROR: %s)", lua_tostring(L, -1));
+        } else {
+            lua_getfield(L, 1, "ec");
+            lua_pushfstring(L, "ProcessResult(%s, ok=%s, ec=%d)", type ? type : "unknown", ok ? "true" : "false", (int)lua_tointeger(L, -1));
+        }
+        return 1;
+    });
+
+    lua_setfield(L, -2, "__tostring");
+    lua_pop(L, 1);
 }

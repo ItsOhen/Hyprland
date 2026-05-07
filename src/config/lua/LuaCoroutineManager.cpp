@@ -2,6 +2,7 @@
 #include "../../debug/log/Logger.hpp"
 #include "LuaProcessExecutor.hpp"
 #include "managers/eventLoop/EventLoopManager.hpp"
+#include "objects/LuaProcessHandle.hpp"
 
 using namespace Config::Lua;
 
@@ -102,6 +103,12 @@ bool CLuaCoroutineManager::resumeThread(uint64_t threadId, const std::any& resul
             lua_setfield(thread, -2, "err");
         }
 
+        luaL_getmetatable(thread, MT_PROCESS_RESULT);
+        if (!lua_isnil(thread, -1)) {
+            lua_setmetatable(thread, -2);
+        } else {
+            lua_pop(thread, 1);
+        }
         nargs = 1;
     }
 
