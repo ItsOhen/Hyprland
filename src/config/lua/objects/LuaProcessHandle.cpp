@@ -13,19 +13,8 @@ namespace {
 }
 
 static int asyncExecContinue(lua_State* L, int status, lua_KContext ctx) {
-    (void)status;
-    (void)ctx;
-
-    int nresults = lua_gettop(L);
-
-    if (nresults >= 3) {
-        return 3;
-    }
-
-    lua_pushnil(L);
-    lua_pushstring(L, "");
-    lua_pushstring(L, "HL.AsyncExec: continuation stack underflow");
-    return 3;
+    // Just the res table from resume
+    return 1;
 }
 
 static int asyncExecCall(lua_State* L) {
