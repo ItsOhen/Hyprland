@@ -283,6 +283,7 @@ void CConfigManager::reinitLuaState() {
     luaL_openlibs(m_lua);
 
     Config::Lua::Objects::registerProcessHandleMetatable(m_lua);
+    Config::Lua::Objects::registerProcessResultMetatable(m_lua);
 
     lua_getglobal(m_lua, "debug");
     if (lua_istable(m_lua, -1)) {

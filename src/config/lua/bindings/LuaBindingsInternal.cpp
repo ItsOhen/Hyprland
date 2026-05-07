@@ -329,17 +329,6 @@ void Internal::pushWindowUpval(lua_State* L, int tableIdx) {
         lua_pushnil(L);
 }
 
-static auto logLevelForActionError(CA::eActionErrorLevel level) {
-    switch (level) {
-        case CA::eActionErrorLevel::SILENT: return Log::DEBUG;
-        case CA::eActionErrorLevel::INFO: return Log::INFO;
-        case CA::eActionErrorLevel::WARNING: return Log::WARN;
-        case CA::eActionErrorLevel::ERROR: return Log::ERR;
-    }
-
-    return Log::ERR;
-}
-
 void Internal::reportError(lua_State* L, const CA::SActionError& e) {
     Log::logger->log(logLevelForActionError(e.level), "Lua {} ({}): {}", CA::toString(e.level), CA::toString(e.code), e.message);
 
