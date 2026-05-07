@@ -1518,6 +1518,7 @@ void CMonitor::setSpecialWorkspace(const PHLWORKSPACE& pWorkspace) {
         Config::monitorRuleMgr()->ensureVRR(m_self.lock());
 
         g_pCompositor->updateSuspendedStates();
+        Event::bus()->m_events.workspace.active.emit(m_activeWorkspace);
 
         return;
     }
@@ -1555,6 +1556,7 @@ void CMonitor::setSpecialWorkspace(const PHLWORKSPACE& pWorkspace) {
     pWorkspace->m_monitor               = m_self;
     m_activeSpecialWorkspace            = pWorkspace;
     m_activeSpecialWorkspace->m_visible = true;
+    Event::bus()->m_events.workspace.active.emit(m_activeSpecialWorkspace);
 
     // Reset layer surface state when opening special workspace
     for (auto const& ls : g_pCompositor->m_layers) {
