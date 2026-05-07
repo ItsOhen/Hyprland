@@ -316,14 +316,40 @@ static int hlExecCmd(lua_State* L) {
     if (cmd.empty())
         return Internal::configError(L, "hl.exec_cmd: expected command as first argument");
 
-    auto rule = Internal::buildRuleFromTable(L, 2);
+    auto ruleRet = Internal::buildRuleFromTable(L, 2);
+    if (!ruleRet)
+        return ruleRet.error();
 
-    if (!rule)
-        return rule.error();
+    auto                    rule = std::move(*ruleRet);
 
-    Config::Supplementary::executor()->spawn(Supplementary::SExecRequest{cmd, !*rule, *rule});
+    std::optional<uint64_t> pid;
+    if (rule)
+        pid = Config::Supplementary::executor()->spawn(Config::Supplementary::SExecRequest{.exec = cmd, .rule = rule});
+    else
+        pid = Config::Supplementary::executor()->spawn(cmd);
 
-    return 0;
+    if (!pid.has_value()) {
+        lua_pushnil(L);
+    } else {
+        lua_pushinteger(L, (lua_Integer)*pid);
+    }
+
+    return 1;
+}
+
+static int hlExecRaw(lua_State* L) {
+    auto cmd = Internal::argStr(L, 1);
+    if (cmd.empty())
+        return Internal::configError(L, "hl.exec_raw: expected command");
+
+    auto pid = Config::Supplementary::executor()->spawnRaw(cmd);
+
+    if (!pid || !*pid)
+        lua_pushnil(L);
+    else
+        lua_pushinteger(L, (lua_Integer)*pid);
+
+    return 1;
 }
 
 static int hlDispatch(lua_State* L) {
@@ -501,6 +527,7 @@ void Internal::registerToplevelBindings(lua_State* L, CConfigManager* mgr) {
     Internal::setFn(L, "version", hlVersion);
     Internal::setFn(L, "get_loaded_plugins", hlGetPlugins);
     Internal::setFn(L, "exec_cmd", hlExecCmd);
+    Internal::setFn(L, "exec_raw", hlExecRaw);
 
     Internal::setFn(L, "unbind", hlUnbind);
 }
