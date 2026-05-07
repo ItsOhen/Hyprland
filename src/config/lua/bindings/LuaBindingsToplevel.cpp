@@ -320,21 +320,31 @@ static int hlExecCmd(lua_State* L) {
 }
 
 static int hlDispatch(lua_State* L) {
-    if (lua_istable(L, 1))
+    int args = lua_gettop(L);
+    if (args == 0)
         return Internal::pushSuccessResult(L);
 
-    if (!lua_isfunction(L, 1))
-        return Internal::configError(L, "hl.dispatch: expected function or result table");
+    int targetIdx = args;
 
-    lua_pushvalue(L, 1);
+    if (Internal::pushDispatcherFunction(L, targetIdx)) {
+        if (lua_pcall(L, 0, 1, 0) != LUA_OK) {
+            const char* err = lua_tostring(L, -1);
+            return Internal::configError(L, "Dispatch failed: {}", err);
+        }
 
-    lua_call(L, 0, 1);
-
-    if (lua_istable(L, -1)) {
-        lua_pop(L, 1);
+        if (lua_isnil(L, -1)) {
+            lua_pop(L, 1);
+            return Internal::pushSuccessResult(L);
+        }
+        return 1;
     }
 
-    return Internal::pushSuccessResult(L);
+    if (lua_istable(L, targetIdx)) {
+        lua_pushvalue(L, targetIdx);
+        return 1;
+    }
+
+    return Internal::configError(L, "hl.dispatch: expected dispatcher object, got {}", lua_typename(L, lua_type(L, targetIdx)));
 }
 
 static int hlOn(lua_State* L) {
