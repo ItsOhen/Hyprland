@@ -566,6 +566,8 @@ void CConfigManager::reloadModule(const std::string& filePath) {
     }
 
     lua_gc(m_lua, LUA_GCCOLLECT, 0);
+
+    postConfigReload();
 }
 
 void CConfigManager::sweepStaleRegistrations() {
