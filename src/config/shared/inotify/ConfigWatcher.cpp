@@ -41,6 +41,15 @@ CFileDescriptor& CConfigWatcher::getInotifyFD() {
 void CConfigWatcher::update() {
     static const auto PDISABLEAUTORELOAD = CConfigValue<Config::INTEGER>("misc:disable_autoreload");
     setWatchList(*PDISABLEAUTORELOAD ? std::vector<std::string>{} : Config::mgr()->getConfigPaths());
+    drainStaleEvents();
+}
+
+void CConfigWatcher::drainStaleEvents() {
+    // flush any pending inotify events for now-removed watches
+    constexpr size_t BUFFER_SIZE = sizeof(inotify_event) + NAME_MAX + 1;
+    alignas(inotify_event) std::array<char, BUFFER_SIZE> buf = {};
+    while (read(m_inotifyFd.get(), buf.data(), buf.size()) > 0) {
+    }
 }
 
 void CConfigWatcher::setWatchList(const std::vector<std::string>& paths) {
@@ -103,7 +112,7 @@ void CConfigWatcher::onInotifyEvent() {
         const auto WD = std::ranges::find_if(m_watches, [wd = ev->wd](const auto& e) { return e.wd == wd; });
 
         if (WD == m_watches.end())
-            Log::logger->log(Log::ERR, "CConfigWatcher: got an event for wd {} which we don't have?!", ev->wd);
+            Log::logger->log(Log::DEBUG, "CConfigWatcher: got an event for wd {} which we don't have?!", ev->wd);
         else
             m_watchCallback(SConfigWatchEvent{
                 .file = WD->file,
