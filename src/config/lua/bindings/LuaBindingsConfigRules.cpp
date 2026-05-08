@@ -721,6 +721,8 @@ static int hlWorkspaceRule(lua_State* L) {
 }
 
 static int hlGesture(lua_State* L) {
+    auto* mgr = sc<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
+
     if (!lua_istable(L, 1))
         return Internal::configError(L, R"(hl.gesture: expected a table, e.g. { fingers = 3, direction = "horizontal", action = "workspace" })");
 
@@ -817,6 +819,7 @@ static int hlGesture(lua_State* L) {
     lua_pop(L, 1);
 
     std::expected<void, std::string> result;
+    const auto                       gen = !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0;
 
     if (functionRef != LUA_NOREF) {
         // this is a lua fn gesture
@@ -853,9 +856,12 @@ static int hlGesture(lua_State* L) {
             return Internal::configError(L, std::format("hl.gesture: unknown action \"{}\"", action));
     }
 
-    if (!result)
-        return Internal::configError(L, std::format("hl.gesture: {}", result.error()));
+    if (result) {
+        mgr->m_luaGestures.emplace_back(CConfigManager::SLuaGestureInfo{fingerCount, modMask, direction, deltaScale, disableInhibit, gen});
+        return 0;
+    }
 
+    mgr->addError(std::format("hl.gesture: {}", result.error()));
     return 0;
 }
 
@@ -1079,13 +1085,13 @@ static int hlWindowRule(lua_State* L) {
 
     SP<Desktop::Rule::CWindowRule> rule;
     if (!name.empty() && self->m_luaWindowRules.contains(name)) {
-        rule                                          = self->m_luaWindowRules[name];
-        self->m_luaWindowRuleGen[name]                = !self->isDynamicParse() ? self->m_reloadGeneration : 0;
+        rule                           = self->m_luaWindowRules[name];
+        self->m_luaWindowRuleGen[name] = !self->isDynamicParse() ? self->m_reloadGeneration : 0;
     } else {
         rule = makeShared<Desktop::Rule::CWindowRule>(name);
         if (!name.empty()) {
-            self->m_luaWindowRules[name]    = rule;
-            self->m_luaWindowRuleGen[name]  = !self->isDynamicParse() ? self->m_reloadGeneration : 0;
+            self->m_luaWindowRules[name]   = rule;
+            self->m_luaWindowRuleGen[name] = !self->isDynamicParse() ? self->m_reloadGeneration : 0;
         }
         Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>(rule));
     }
@@ -1192,13 +1198,13 @@ static int hlLayerRule(lua_State* L) {
 
     SP<Desktop::Rule::CLayerRule> rule;
     if (!name.empty() && self->m_luaLayerRules.contains(name)) {
-        rule                                        = self->m_luaLayerRules[name];
-        self->m_luaLayerRuleGen[name]               = !self->isDynamicParse() ? self->m_reloadGeneration : 0;
+        rule                          = self->m_luaLayerRules[name];
+        self->m_luaLayerRuleGen[name] = !self->isDynamicParse() ? self->m_reloadGeneration : 0;
     } else {
         rule = makeShared<Desktop::Rule::CLayerRule>(name);
         if (!name.empty()) {
-            self->m_luaLayerRules[name] = rule;
-            self->m_luaLayerRuleGen[name]           = !self->isDynamicParse() ? self->m_reloadGeneration : 0;
+            self->m_luaLayerRules[name]   = rule;
+            self->m_luaLayerRuleGen[name] = !self->isDynamicParse() ? self->m_reloadGeneration : 0;
         }
         Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>(rule));
     }
@@ -1301,7 +1307,7 @@ void Internal::registerConfigRuleBindings(lua_State* L, CConfigManager* mgr) {
     Internal::setMgrFn(L, mgr, "load", hlPluginLoad);
     lua_setfield(L, -2, "plugin");
 
-    Internal::setFn(L, "gesture", hlGesture);
+    Internal::setMgrFn(L, mgr, "gesture", hlGesture);
     Internal::setFn(L, "curve", hlCurve);
     Internal::setFn(L, "animation", hlAnimation);
 }

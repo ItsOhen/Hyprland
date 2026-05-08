@@ -239,7 +239,7 @@ void CLuaEventHandler::sweepEvent(const std::string& eventName, int newRef, uint
     const int oldFuncIdx = lua_gettop(m_lua) - 1;
     const int newFuncIdx = lua_gettop(m_lua);
 
-    int copied = 0;
+    int       copied = 0;
     for (int i = 1;; i++) {
         const char* name = lua_getupvalue(m_lua, oldFuncIdx, i);
         if (!name)

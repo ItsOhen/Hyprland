@@ -46,10 +46,9 @@ void CConfigWatcher::update() {
 
 void CConfigWatcher::drainStaleEvents() {
     // flush any pending inotify events for now-removed watches
-    constexpr size_t BUFFER_SIZE = sizeof(inotify_event) + NAME_MAX + 1;
-    alignas(inotify_event) std::array<char, BUFFER_SIZE> buf = {};
-    while (read(m_inotifyFd.get(), buf.data(), buf.size()) > 0) {
-    }
+    constexpr size_t                                     BUFFER_SIZE = sizeof(inotify_event) + NAME_MAX + 1;
+    alignas(inotify_event) std::array<char, BUFFER_SIZE> buf         = {};
+    while (read(m_inotifyFd.get(), buf.data(), buf.size()) > 0) {}
 }
 
 void CConfigWatcher::setWatchList(const std::vector<std::string>& paths) {
