@@ -64,6 +64,10 @@ std::expected<void, std::string> CTrackpadGestures::addGesture(UP<ITrackpadGestu
         if (g->modMask != modMask)
             continue;
 
+        // exact duplicate (same gesture re-registered on module reload) — return success silently
+        if (g->direction == direction && g->deltaScale == deltaScale && g->disableInhibit == disableInhibit)
+            return {};
+
         eTrackpadGestureDirection axis = TRACKPAD_GESTURE_DIR_NONE;
         switch (direction) {
             case TRACKPAD_GESTURE_DIR_UP:

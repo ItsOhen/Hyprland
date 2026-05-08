@@ -448,9 +448,9 @@ void CConfigManager::reload() {
             }
         }
         Log::logger->log(Log::DEBUG,
-                         "[lua] state before reload gen {}: timers={} layouts={} win_rules={} lay_rules={} devices={} plugins={} refs={} events={} keybinds={}",
-                         m_reloadGeneration, m_luaTimers.size(), m_luaLayoutProviders.size(), m_luaWindowRules.size(), m_luaLayerRules.size(),
-                         m_deviceConfigs.size(), m_registeredPlugins.size(), m_heldLuaRefs.size(), eventSubs, luaBinds);
+                         "[lua] state before reload gen {}: timers={} layouts={} win_rules={} lay_rules={} devices={} plugins={} refs={} events={} keybinds={} gestures={}",
+                         m_reloadGeneration, m_luaTimers.size(), m_luaLayoutProviders.size(), m_luaWindowRules.size(), m_luaLayerRules.size(), m_deviceConfigs.size(),
+                         m_registeredPlugins.size(), m_heldLuaRefs.size(), eventSubs, luaBinds, g_pTrackpadGestures->gestureCount());
     }
 
     m_errors.clear();
@@ -464,6 +464,7 @@ void CConfigManager::reload() {
     m_luaLayerRules.clear();
     m_luaLayerRuleGen.clear();
     g_pTrackpadGestures->clearGestures();
+    m_luaGestures.clear();
 
     reregisterLuaPluginFns();
 
@@ -522,9 +523,9 @@ void CConfigManager::reloadModule(const std::string& filePath) {
             }
         }
         Log::logger->log(Log::DEBUG,
-                         "[lua] module state before gen {}: timers={} layouts={} win_rules={} lay_rules={} devices={} plugins={} refs={} events={} keybinds={}",
-                         m_reloadGeneration, m_luaTimers.size(), m_luaLayoutProviders.size(), m_luaWindowRules.size(), m_luaLayerRules.size(),
-                         m_deviceConfigs.size(), m_registeredPlugins.size(), m_heldLuaRefs.size(), eventSubs, luaBinds);
+                         "[lua] module state before gen {}: timers={} layouts={} win_rules={} lay_rules={} devices={} plugins={} refs={} events={} keybinds={} gestures={}",
+                         m_reloadGeneration, m_luaTimers.size(), m_luaLayoutProviders.size(), m_luaWindowRules.size(), m_luaLayerRules.size(), m_deviceConfigs.size(),
+                         m_registeredPlugins.size(), m_heldLuaRefs.size(), eventSubs, luaBinds, g_pTrackpadGestures->gestureCount());
     }
 
     m_errors.clear();
@@ -532,7 +533,8 @@ void CConfigManager::reloadModule(const std::string& filePath) {
     m_reloadGeneration++;
     Hyprutils::Utils::CScopeGuard x([this] { m_isParsingConfig = false; });
 
-    // clear package.loaded[moduleName] so require() re-executes the module
+    // NOTE: we do NOT sweep here — timers/events should survive module reload
+    // and be updated via copyUpvalues / re-registration
     lua_getglobal(m_lua, "package");
     lua_getfield(m_lua, -1, "loaded");
     lua_pushstring(m_lua, moduleName.c_str());
@@ -567,9 +569,9 @@ void CConfigManager::reloadModule(const std::string& filePath) {
             }
         }
         Log::logger->log(Log::DEBUG,
-                         "[lua] module state after gen {}: timers={} layouts={} win_rules={} lay_rules={} devices={} plugins={} refs={} events={} keybinds={}",
-                         m_reloadGeneration, m_luaTimers.size(), m_luaLayoutProviders.size(), m_luaWindowRules.size(), m_luaLayerRules.size(),
-                         m_deviceConfigs.size(), m_registeredPlugins.size(), m_heldLuaRefs.size(), eventSubs, luaBinds);
+                         "[lua] module state after gen {}: timers={} layouts={} win_rules={} lay_rules={} devices={} plugins={} refs={} events={} keybinds={} gestures={}",
+                         m_reloadGeneration, m_luaTimers.size(), m_luaLayoutProviders.size(), m_luaWindowRules.size(), m_luaLayerRules.size(), m_deviceConfigs.size(),
+                         m_registeredPlugins.size(), m_heldLuaRefs.size(), eventSubs, luaBinds, g_pTrackpadGestures->gestureCount());
     }
 
     lua_gc(m_lua, LUA_GCCOLLECT, 0);
@@ -614,57 +616,63 @@ void CConfigManager::sweepStaleRegistrations() {
         totalStale += stale.size();
     };
 
-    // sweep timers
-    sweepGenVector(m_luaTimers, [](const auto& t) { return t.generation; },
-                   [&](auto& t) {
-                       t.timer->cancel();
-                       g_pEventLoopManager->removeTimer(t.timer);
-                       if (m_lua && t.luaRef != LUA_NOREF) {
-                           luaL_unref(m_lua, LUA_REGISTRYINDEX, t.luaRef);
-                           t.luaRef = LUA_NOREF;
-                       }
-                   },
-                   "timers");
+    // sweep timers (skip those with id > 0 — they survive module reload)
+    {
+        size_t before = m_luaTimers.size();
+        for (auto& t : m_luaTimers) {
+            if (t.id > 0 || !isStale(t.generation))
+                continue;
+            t.timer->cancel();
+            g_pEventLoopManager->removeTimer(t.timer);
+            if (m_lua && t.luaRef != LUA_NOREF) {
+                luaL_unref(m_lua, LUA_REGISTRYINDEX, t.luaRef);
+                t.luaRef = LUA_NOREF;
+            }
+        }
+        std::erase_if(m_luaTimers, [&](const auto& t) { return t.id == 0 && isStale(t.generation); });
+        size_t swept = before - m_luaTimers.size();
+        if (swept > 0)
+            Log::logger->log(Log::DEBUG, "[lua] sweep gen {}: removed {} stale timers ({} remain)", currentGen, swept, m_luaTimers.size());
+        totalStale += swept;
+    }
 
     // sweep layout providers
-    sweepGenVector(m_luaLayoutProviders, [](const auto& p) { return p->generation; },
-                   [&](auto& provider) {
-                       provider->active = false;
-                       if (provider->name != "")
-                           Layout::Supplementary::algoMatcher()->unregisterAlgo(provider->name);
-                       if (m_lua && provider->tableRef != LUA_NOREF) {
-                           luaL_unref(m_lua, LUA_REGISTRYINDEX, provider->tableRef);
-                           provider->tableRef = LUA_NOREF;
-                       }
-                   },
-                   "layout providers");
+    sweepGenVector(
+        m_luaLayoutProviders, [](const auto& p) { return p->generation; },
+        [&](auto& provider) {
+            provider->active = false;
+            if (provider->name != "")
+                Layout::Supplementary::algoMatcher()->unregisterAlgo(provider->name);
+            if (m_lua && provider->tableRef != LUA_NOREF) {
+                luaL_unref(m_lua, LUA_REGISTRYINDEX, provider->tableRef);
+                provider->tableRef = LUA_NOREF;
+            }
+        },
+        "layout providers");
 
     // sweep window rules
-    sweepGenMap(m_luaWindowRuleGen,
-                [&](const std::string& name) {
-                    Desktop::Rule::ruleEngine()->unregisterRule(m_luaWindowRules[name]);
-                    m_luaWindowRules.erase(name);
-                },
-                "window rules");
+    sweepGenMap(
+        m_luaWindowRuleGen,
+        [&](const std::string& name) {
+            Desktop::Rule::ruleEngine()->unregisterRule(m_luaWindowRules[name]);
+            m_luaWindowRules.erase(name);
+        },
+        "window rules");
 
     // sweep layer rules
-    sweepGenMap(m_luaLayerRuleGen,
-                [&](const std::string& name) {
-                    Desktop::Rule::ruleEngine()->unregisterRule(m_luaLayerRules[name]);
-                    m_luaLayerRules.erase(name);
-                },
-                "layer rules");
+    sweepGenMap(
+        m_luaLayerRuleGen,
+        [&](const std::string& name) {
+            Desktop::Rule::ruleEngine()->unregisterRule(m_luaLayerRules[name]);
+            m_luaLayerRules.erase(name);
+        },
+        "layer rules");
 
     // sweep device configs
-    sweepGenMap(m_deviceConfigGen,
-                [&](const std::string& name) { m_deviceConfigs.erase(name); }, "device configs");
+    sweepGenMap(m_deviceConfigGen, [&](const std::string& name) { m_deviceConfigs.erase(name); }, "device configs");
 
     // sweep registered plugins
-    sweepGenMap(m_registeredPluginGen,
-                [&](const std::string& name) {
-                    m_registeredPlugins.erase(std::ranges::find(m_registeredPlugins, name));
-                },
-                "plugin registrations");
+    sweepGenMap(m_registeredPluginGen, [&](const std::string& name) { m_registeredPlugins.erase(std::ranges::find(m_registeredPlugins, name)); }, "plugin registrations");
 
     // sweep held lua refs
     {
@@ -722,6 +730,22 @@ void CConfigManager::sweepStaleRegistrations() {
         if (!keybindsToRemove.empty())
             Log::logger->log(Log::DEBUG, "[lua] sweep gen {}: removed {} stale __lua keybinds", currentGen, keybindsToRemove.size());
         totalStale += keybindsToRemove.size();
+    }
+
+    // sweep gestures
+    {
+        size_t before = m_luaGestures.size();
+        for (auto it = m_luaGestures.begin(); it != m_luaGestures.end();) {
+            if (isStale(it->generation)) {
+                g_pTrackpadGestures->removeGesture(it->fingerCount, it->direction, it->modMask, it->deltaScale, it->disableInhibit);
+                it = m_luaGestures.erase(it);
+            } else
+                ++it;
+        }
+        size_t swept = before - m_luaGestures.size();
+        if (swept > 0)
+            Log::logger->log(Log::DEBUG, "[lua] sweep gen {}: removed {} stale gesture(s) ({} remain)", currentGen, swept, m_luaGestures.size());
+        totalStale += swept;
     }
 
     Log::logger->log(Log::DEBUG, "[lua] sweep gen {}: done, removed {} stale registrations total", currentGen, totalStale);

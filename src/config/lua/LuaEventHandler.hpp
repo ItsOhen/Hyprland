@@ -42,7 +42,7 @@ namespace Config::Lua {
             return m_subscriptions.size();
         }
 
-        lua_State*              getLuaState() const {
+        lua_State* getLuaState() const {
             return m_lua;
         }
 
@@ -55,7 +55,7 @@ namespace Config::Lua {
       private:
         struct SSubscription {
             std::string eventName;
-            int         luaRef = -1;
+            int         luaRef     = -1;
             uint64_t    generation = 0;
         };
 

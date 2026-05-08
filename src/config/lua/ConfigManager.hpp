@@ -24,6 +24,7 @@
 
 #include "../../SharedDefs.hpp"
 #include "../../managers/KeybindManager.hpp"
+#include "../../managers/input/trackpad/GestureTypes.hpp"
 #include "../shared/ConfigErrors.hpp"
 
 extern "C" {
@@ -97,35 +98,35 @@ namespace Config::Lua {
         std::expected<void, std::string>         registerLuaLayoutProvider(std::string name, lua_State* L, int providerTableIdx);
 
         // execute an arbitrary lua string on the current state.
-        std::optional<std::string> eval(const std::string& code);
+        std::optional<std::string>        eval(const std::string& code);
 
-        int                        guardedPCall(int nargs, int nresults, int errfunc, int timeoutMs, std::string_view context);
+        int                               guardedPCall(int nargs, int nresults, int errfunc, int timeoutMs, std::string_view context);
 
-        static CConfigManager*     fromLuaState(lua_State* L);
+        static CConfigManager*            fromLuaState(lua_State* L);
 
-        void                       addModulePath(const std::string& path, const std::string& moduleName);
+        void                              addModulePath(const std::string& path, const std::string& moduleName);
 
-        static constexpr int       LUA_WATCHDOG_INSTRUCTION_INTERVAL = 10000;
-        static constexpr int       LUA_TIMEOUT_CONFIG_RELOAD_MS      = 1500;
-        static constexpr int       LUA_TIMEOUT_EVENT_CALLBACK_MS     = 50;
-        static constexpr int       LUA_TIMEOUT_KEYBIND_CALLBACK_MS   = 100;
-        static constexpr int       LUA_TIMEOUT_TIMER_CALLBACK_MS     = 50;
-        static constexpr int       LUA_TIMEOUT_LAYOUT_CALLBACK_MS    = 50;
-        static constexpr int       LUA_TIMEOUT_EVAL_MS               = 250;
-        static constexpr int       LUA_TIMEOUT_DISPATCH_MS           = 100;
+        static constexpr int              LUA_WATCHDOG_INSTRUCTION_INTERVAL = 10000;
+        static constexpr int              LUA_TIMEOUT_CONFIG_RELOAD_MS      = 1500;
+        static constexpr int              LUA_TIMEOUT_EVENT_CALLBACK_MS     = 50;
+        static constexpr int              LUA_TIMEOUT_KEYBIND_CALLBACK_MS   = 100;
+        static constexpr int              LUA_TIMEOUT_TIMER_CALLBACK_MS     = 50;
+        static constexpr int              LUA_TIMEOUT_LAYOUT_CALLBACK_MS    = 50;
+        static constexpr int              LUA_TIMEOUT_EVAL_MS               = 250;
+        static constexpr int              LUA_TIMEOUT_DISPATCH_MS           = 100;
 
-        bool                       isFirstLaunch() const;
-        bool                       isDynamicParse() const;
+        bool                              isFirstLaunch() const;
+        bool                              isDynamicParse() const;
 
-        std::string                m_currentSubmap;
-        std::string                m_currentSubmapReset;
+        std::string                       m_currentSubmap;
+        std::string                       m_currentSubmapReset;
 
-        uint64_t                                     m_reloadGeneration = 0;
-        std::unordered_map<int, uint64_t>            m_luaKeybindRefGen;
+        uint64_t                          m_reloadGeneration = 0;
+        std::unordered_map<int, uint64_t> m_luaKeybindRefGen;
 
-        UP<CLuaEventHandler>       m_eventHandler;
-        UP<CLuaCoroutineManager>   m_coroutineManager;
-        UP<CProcessExecutor>       m_processExecutor;
+        UP<CLuaEventHandler>              m_eventHandler;
+        UP<CLuaCoroutineManager>          m_coroutineManager;
+        UP<CProcessExecutor>              m_processExecutor;
 
         struct SLuaTimer {
             SP<CEventLoopTimer> timer;
@@ -133,6 +134,9 @@ namespace Config::Lua {
             int                 coRef      = LUA_NOREF;
             lua_State*          co         = nullptr;
             uint64_t            generation = 0;
+            size_t              id         = 0;
+            bool                repeat     = false;
+            int                 timeoutMs  = 0;
         };
         std::vector<SLuaTimer>                               m_luaTimers;
 
@@ -157,6 +161,16 @@ namespace Config::Lua {
         std::unordered_map<std::string, uint64_t>                       m_luaWindowRuleGen;
         std::unordered_map<std::string, SP<Desktop::Rule::CLayerRule>>  m_luaLayerRules;
         std::unordered_map<std::string, uint64_t>                       m_luaLayerRuleGen;
+
+        struct SLuaGestureInfo {
+            size_t                    fingerCount    = 0;
+            uint32_t                  modMask        = 0;
+            eTrackpadGestureDirection direction      = TRACKPAD_GESTURE_DIR_NONE;
+            float                     deltaScale     = 1.F;
+            bool                      disableInhibit = false;
+            uint64_t                  generation     = 0;
+        };
+        std::vector<SLuaGestureInfo> m_luaGestures;
 
       private:
         void                                         reinitLuaState();

@@ -169,10 +169,10 @@ static int hlBind(lua_State* L) {
     if (kb.catchAll && mgr->m_currentSubmap.empty())
         return Internal::configError(L, "hl.bind: catchall keybinds are only allowed in submaps.");
 
-    int ref       = luaL_ref(L, LUA_REGISTRYINDEX);
-    kb.handler    = "__lua";
-    kb.arg        = std::to_string(ref);
-    kb.displayKey = keys;
+    int ref                      = luaL_ref(L, LUA_REGISTRYINDEX);
+    kb.handler                   = "__lua";
+    kb.arg                       = std::to_string(ref);
+    kb.displayKey                = keys;
     mgr->m_luaKeybindRefGen[ref] = !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0;
 
     int optsIdx = 3;
@@ -493,7 +493,37 @@ static int hlTimer(lua_State* L) {
     std::string type = luaL_checkstring(L, -1);
     lua_pop(L, 1);
 
-    bool repeat = (type == "repeat");
+    bool   repeat = (type == "repeat");
+
+    size_t id = 0;
+    lua_getfield(L, 2, "id");
+    if (!lua_isnil(L, -1))
+        id = (size_t)luaL_checknumber(L, -1);
+    lua_pop(L, 1);
+
+    // If id matches an existing timer, update its Lua refs and return it
+    if (id > 0) {
+        auto it = std::ranges::find_if(mgr->m_luaTimers, [&](const auto& lt) { return lt.id == id; });
+        if (it != mgr->m_luaTimers.end()) {
+            luaL_unref(L, LUA_REGISTRYINDEX, it->luaRef);
+            luaL_unref(L, LUA_REGISTRYINDEX, it->coRef);
+
+            lua_pushvalue(L, 1);
+            it->luaRef = luaL_ref(L, LUA_REGISTRYINDEX);
+
+            lua_State* co    = lua_newthread(L);
+            int        coRef = luaL_ref(L, LUA_REGISTRYINDEX);
+            lua_rawgeti(co, LUA_REGISTRYINDEX, it->luaRef);
+            it->co         = co;
+            it->coRef      = coRef;
+            it->repeat     = repeat;
+            it->timeoutMs  = timeoutMs;
+            it->generation = !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0;
+
+            Objects::CLuaTimer::push(L, it->timer, timeoutMs);
+            return 1;
+        }
+    }
 
     lua_pushvalue(L, 1);
     int        fnRef = luaL_ref(L, LUA_REGISTRYINDEX);
@@ -505,12 +535,20 @@ static int hlTimer(lua_State* L) {
 
     auto timer = makeShared<CEventLoopTimer>(
         std::chrono::milliseconds(timeoutMs),
-        [L, mgr, fnRef, coRef, co, repeat, timeoutMs](SP<CEventLoopTimer> self, void* data) {
-            if (repeat)
-                self->updateTimeout(std::chrono::milliseconds(timeoutMs));
+        [mgr, L](SP<CEventLoopTimer> self, void* data) {
+            auto it = std::ranges::find_if(mgr->m_luaTimers, [&](const auto& lt) { return lt.timer == self; });
+            if (it == mgr->m_luaTimers.end())
+                return;
 
-            int nres   = 0;
-            int status = lua_resume(co, L, 0, &nres);
+            if (it->repeat)
+                self->updateTimeout(std::chrono::milliseconds(it->timeoutMs));
+
+            lua_State* co    = it->co;
+            int        fnRef = it->luaRef;
+            int        coRef = it->coRef;
+
+            int        nres   = 0;
+            int        status = lua_resume(co, L, 0, &nres);
 
             if (status != LUA_OK && status != LUA_YIELD) {
                 Log::logger->log(Log::ERR, "[Lua] Timer error: {}", lua_tostring(co, -1));
@@ -520,15 +558,15 @@ static int hlTimer(lua_State* L) {
                 luaL_unref(L, LUA_REGISTRYINDEX, coRef);
                 luaL_unref(L, LUA_REGISTRYINDEX, fnRef);
 
-                auto it = std::ranges::find_if(mgr->m_luaTimers, [&](const auto& lt) { return lt.timer == self; });
-                if (it != mgr->m_luaTimers.end()) {
-                    mgr->m_luaTimers.erase(it);
+                auto it2 = std::ranges::find_if(mgr->m_luaTimers, [&](const auto& lt) { return lt.timer == self; });
+                if (it2 != mgr->m_luaTimers.end()) {
+                    mgr->m_luaTimers.erase(it2);
                 }
             }
         },
         nullptr);
 
-    mgr->m_luaTimers.emplace_back(CConfigManager::SLuaTimer{timer, fnRef, coRef, co, !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0});
+    mgr->m_luaTimers.emplace_back(CConfigManager::SLuaTimer{timer, fnRef, coRef, co, !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0, id, repeat, timeoutMs});
 
     if (g_pEventLoopManager)
         g_pEventLoopManager->addTimer(timer);
