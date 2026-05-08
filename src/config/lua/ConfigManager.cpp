@@ -573,120 +573,93 @@ void CConfigManager::sweepStaleRegistrations() {
     size_t     totalStale = 0;
     Log::logger->log(Log::DEBUG, "[lua] sweep gen {}: starting", currentGen);
 
-    // sweep timers
-    {
-        auto   isStale = [currentGen](uint64_t gen) { return gen != 0 && gen != currentGen; };
-        size_t before  = m_luaTimers.size();
-        for (auto& t : m_luaTimers) {
-            if (isStale(t.generation)) {
-                t.timer->cancel();
-                g_pEventLoopManager->removeTimer(t.timer);
-                if (m_lua && t.luaRef != LUA_NOREF) {
-                    luaL_unref(m_lua, LUA_REGISTRYINDEX, t.luaRef);
-                    t.luaRef = LUA_NOREF;
-                }
-            }
+    auto isStale = [currentGen](uint64_t gen) { return gen != 0 && gen != currentGen; };
+
+    auto sweepGenVector = [&](auto& vec, auto getGen, auto cleanup, const std::string& label) {
+        size_t before = vec.size();
+        for (auto& item : vec) {
+            if (isStale(getGen(item)))
+                cleanup(item);
         }
-        std::erase_if(m_luaTimers, [isStale](const auto& t) { return isStale(t.generation); });
-        size_t swept = before - m_luaTimers.size();
+        std::erase_if(vec, [&](const auto& item) { return isStale(getGen(item)); });
+        size_t swept = before - vec.size();
         if (swept > 0)
-            Log::logger->log(Log::DEBUG, "[lua] sweep gen {}: removed {} stale timers ({} remain)", currentGen, swept, m_luaTimers.size());
+            Log::logger->log(Log::DEBUG, "[lua] sweep gen {}: removed {} stale {} ({} remain)", currentGen, swept, label, vec.size());
         totalStale += swept;
-    }
+    };
+
+    auto sweepGenMap = [&](auto& genMap, auto eraseValue, const std::string& label) {
+        std::vector<std::string> stale;
+        for (const auto& [name, gen] : genMap) {
+            if (isStale(gen))
+                stale.push_back(name);
+        }
+        for (const auto& name : stale) {
+            eraseValue(name);
+            genMap.erase(name);
+        }
+        if (!stale.empty())
+            Log::logger->log(Log::DEBUG, "[lua] sweep gen {}: removed {} stale {} ({} remain)", currentGen, stale.size(), label, genMap.size());
+        totalStale += stale.size();
+    };
+
+    // sweep timers
+    sweepGenVector(m_luaTimers, [](const auto& t) { return t.generation; },
+                   [&](auto& t) {
+                       t.timer->cancel();
+                       g_pEventLoopManager->removeTimer(t.timer);
+                       if (m_lua && t.luaRef != LUA_NOREF) {
+                           luaL_unref(m_lua, LUA_REGISTRYINDEX, t.luaRef);
+                           t.luaRef = LUA_NOREF;
+                       }
+                   },
+                   "timers");
 
     // sweep layout providers
-    {
-        auto   isStale = [currentGen](uint64_t gen) { return gen != 0 && gen != currentGen; };
-        size_t before  = m_luaLayoutProviders.size();
-        for (auto& provider : m_luaLayoutProviders) {
-            if (provider && isStale(provider->generation)) {
-                provider->active = false;
-                if (provider->name != "")
-                    Layout::Supplementary::algoMatcher()->unregisterAlgo(provider->name);
-                if (m_lua && provider->tableRef != LUA_NOREF) {
-                    luaL_unref(m_lua, LUA_REGISTRYINDEX, provider->tableRef);
-                    provider->tableRef = LUA_NOREF;
-                }
-            }
-        }
-        std::erase_if(m_luaLayoutProviders, [isStale](const auto& p) { return p && isStale(p->generation); });
-        size_t swept = before - m_luaLayoutProviders.size();
-        if (swept > 0)
-            Log::logger->log(Log::DEBUG, "[lua] sweep gen {}: removed {} stale layout providers ({} remain)", currentGen, swept, m_luaLayoutProviders.size());
-        totalStale += swept;
-    }
+    sweepGenVector(m_luaLayoutProviders, [](const auto& p) { return p->generation; },
+                   [&](auto& provider) {
+                       provider->active = false;
+                       if (provider->name != "")
+                           Layout::Supplementary::algoMatcher()->unregisterAlgo(provider->name);
+                       if (m_lua && provider->tableRef != LUA_NOREF) {
+                           luaL_unref(m_lua, LUA_REGISTRYINDEX, provider->tableRef);
+                           provider->tableRef = LUA_NOREF;
+                       }
+                   },
+                   "layout providers");
 
     // sweep window rules
-    {
-        std::vector<std::string> staleWindowRules;
-        for (const auto& [name, gen] : m_luaWindowRuleGen) {
-            if (gen != 0 && gen != currentGen)
-                staleWindowRules.push_back(name);
-        }
-        for (const auto& name : staleWindowRules) {
-            Desktop::Rule::ruleEngine()->unregisterRule(m_luaWindowRules[name]);
-            m_luaWindowRules.erase(name);
-            m_luaWindowRuleGen.erase(name);
-        }
-        if (!staleWindowRules.empty())
-            Log::logger->log(Log::DEBUG, "[lua] sweep gen {}: removed {} stale window rules ({} remain)", currentGen, staleWindowRules.size(), m_luaWindowRules.size());
-        totalStale += staleWindowRules.size();
-    }
+    sweepGenMap(m_luaWindowRuleGen,
+                [&](const std::string& name) {
+                    Desktop::Rule::ruleEngine()->unregisterRule(m_luaWindowRules[name]);
+                    m_luaWindowRules.erase(name);
+                },
+                "window rules");
 
     // sweep layer rules
-    {
-        std::vector<std::string> staleLayerRules;
-        for (const auto& [name, gen] : m_luaLayerRuleGen) {
-            if (gen != 0 && gen != currentGen)
-                staleLayerRules.push_back(name);
-        }
-        for (const auto& name : staleLayerRules) {
-            Desktop::Rule::ruleEngine()->unregisterRule(m_luaLayerRules[name]);
-            m_luaLayerRules.erase(name);
-            m_luaLayerRuleGen.erase(name);
-        }
-        if (!staleLayerRules.empty())
-            Log::logger->log(Log::DEBUG, "[lua] sweep gen {}: removed {} stale layer rules ({} remain)", currentGen, staleLayerRules.size(), m_luaLayerRules.size());
-        totalStale += staleLayerRules.size();
-    }
+    sweepGenMap(m_luaLayerRuleGen,
+                [&](const std::string& name) {
+                    Desktop::Rule::ruleEngine()->unregisterRule(m_luaLayerRules[name]);
+                    m_luaLayerRules.erase(name);
+                },
+                "layer rules");
 
     // sweep device configs
-    {
-        std::vector<std::string> staleDevices;
-        for (const auto& [name, gen] : m_deviceConfigGen) {
-            if (gen != 0 && gen != currentGen)
-                staleDevices.push_back(name);
-        }
-        for (const auto& name : staleDevices) {
-            m_deviceConfigs.erase(name);
-            m_deviceConfigGen.erase(name);
-        }
-        if (!staleDevices.empty())
-            Log::logger->log(Log::DEBUG, "[lua] sweep gen {}: removed {} stale device configs ({} remain)", currentGen, staleDevices.size(), m_deviceConfigs.size());
-        totalStale += staleDevices.size();
-    }
+    sweepGenMap(m_deviceConfigGen,
+                [&](const std::string& name) { m_deviceConfigs.erase(name); }, "device configs");
 
     // sweep registered plugins
-    {
-        std::vector<std::string> stalePlugins;
-        for (const auto& [name, gen] : m_registeredPluginGen) {
-            if (gen != 0 && gen != currentGen)
-                stalePlugins.push_back(name);
-        }
-        for (const auto& name : stalePlugins) {
-            m_registeredPlugins.erase(std::ranges::find(m_registeredPlugins, name));
-            m_registeredPluginGen.erase(name);
-        }
-        if (!stalePlugins.empty())
-            Log::logger->log(Log::DEBUG, "[lua] sweep gen {}: removed {} stale plugin registrations ({} remain)", currentGen, stalePlugins.size(), m_registeredPlugins.size());
-        totalStale += stalePlugins.size();
-    }
+    sweepGenMap(m_registeredPluginGen,
+                [&](const std::string& name) {
+                    m_registeredPlugins.erase(std::ranges::find(m_registeredPlugins, name));
+                },
+                "plugin registrations");
 
     // sweep held lua refs
     {
         size_t beforeRefs = m_heldLuaRefs.size();
         for (size_t i = 0; i < m_heldLuaRefs.size(); ++i) {
-            if (i < m_heldLuaRefGen.size() && m_heldLuaRefGen[i] != 0 && m_heldLuaRefGen[i] != currentGen) {
+            if (i < m_heldLuaRefGen.size() && isStale(m_heldLuaRefGen[i])) {
                 if (m_lua)
                     luaL_unref(m_lua, LUA_REGISTRYINDEX, m_heldLuaRefs[i]);
             }
@@ -694,7 +667,7 @@ void CConfigManager::sweepStaleRegistrations() {
         {
             size_t writeIdx = 0;
             for (size_t i = 0; i < m_heldLuaRefs.size(); ++i) {
-                if (i < m_heldLuaRefGen.size() && (m_heldLuaRefGen[i] == currentGen || m_heldLuaRefGen[i] == 0)) {
+                if (i < m_heldLuaRefGen.size() && !isStale(m_heldLuaRefGen[i])) {
                     m_heldLuaRefs[writeIdx]   = m_heldLuaRefs[i];
                     m_heldLuaRefGen[writeIdx] = m_heldLuaRefGen[i];
                     writeIdx++;
@@ -724,7 +697,7 @@ void CConfigManager::sweepStaleRegistrations() {
             if (kb->handler == "__lua") {
                 int  ref   = std::stoi(kb->arg);
                 auto genIt = m_luaKeybindRefGen.find(ref);
-                if (genIt == m_luaKeybindRefGen.end() || (genIt->second != 0 && genIt->second != currentGen)) {
+                if (genIt == m_luaKeybindRefGen.end() || isStale(genIt->second)) {
                     keybindsToRemove.push_back(kb);
                     if (m_lua)
                         luaL_unref(m_lua, LUA_REGISTRYINDEX, ref);
