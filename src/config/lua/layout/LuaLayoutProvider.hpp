@@ -24,9 +24,10 @@ namespace Config::Lua::Layouts {
         CConfigManager* manager = nullptr;
         lua_State*      state   = nullptr;
         std::string     name;
-        int             tableRef = LUA_NOREF;
-        bool            active   = true;
-        bool            didError = false;
+        int             tableRef   = LUA_NOREF;
+        bool            active     = true;
+        bool            didError   = false;
+        uint64_t        generation = 0;
     };
 
     class CLuaTiledAlgorithm : public Layout::ITiledAlgorithm {

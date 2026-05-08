@@ -118,19 +118,24 @@ namespace Config::Lua {
         std::string                m_currentSubmap;
         std::string                m_currentSubmapReset;
 
+        uint64_t                                     m_reloadGeneration = 0;
+        std::unordered_map<int, uint64_t>            m_luaKeybindRefGen;
+
         UP<CLuaEventHandler>       m_eventHandler;
         UP<CLuaCoroutineManager>   m_coroutineManager;
         UP<CProcessExecutor>       m_processExecutor;
 
         struct SLuaTimer {
             SP<CEventLoopTimer> timer;
-            int                 luaRef = LUA_NOREF;
-            int                 coRef  = LUA_NOREF;
-            lua_State*          co     = nullptr;
+            int                 luaRef     = LUA_NOREF;
+            int                 coRef      = LUA_NOREF;
+            lua_State*          co         = nullptr;
+            uint64_t            generation = 0;
         };
         std::vector<SLuaTimer>                               m_luaTimers;
 
         std::vector<std::string>                             m_registeredPlugins;
+        std::unordered_map<std::string, uint64_t>            m_registeredPluginGen;
 
         std::unordered_map<std::string, UP<ILuaConfigValue>> m_configValues;
 
@@ -141,20 +146,25 @@ namespace Config::Lua {
         };
 
         std::unordered_map<std::string, SDeviceConfig> m_deviceConfigs;
+        std::unordered_map<std::string, uint64_t>      m_deviceConfigGen;
         std::vector<std::string>                       m_errors, m_configPaths;
         std::vector<Config::SConfigError>              m_evalIssues;
 
         // named window/layer rules for merge-on-redeclaration
         std::unordered_map<std::string, SP<Desktop::Rule::CWindowRule>> m_luaWindowRules;
+        std::unordered_map<std::string, uint64_t>                       m_luaWindowRuleGen;
         std::unordered_map<std::string, SP<Desktop::Rule::CLayerRule>>  m_luaLayerRules;
+        std::unordered_map<std::string, uint64_t>                       m_luaLayerRuleGen;
 
       private:
         void                                         reinitLuaState();
         void                                         postConfigReload();
+        void                                         reloadModule(const std::string& filePath);
         void                                         registerValue(const char* name, ILuaConfigValue* val);
         void                                         cleanTimers();
         void                                         clearLuaLayoutProviders();
         void                                         clearHeldLuaRefs();
+        void                                         sweepStaleRegistrations();
         std::string                                  luaConfigValueName(const std::string& s);
         std::expected<void, std::string>             registerPluginLuaFunctionInState(uint64_t id, const std::string& namespace_, const std::string& name);
         std::expected<void, std::string>             unregisterPluginLuaFunctionInState(const std::string& namespace_, const std::string& name);
@@ -178,7 +188,10 @@ namespace Config::Lua {
         std::string                                  m_mainConfigPath;
 
         std::vector<int>                             m_heldLuaRefs;
+        std::vector<uint64_t>                        m_heldLuaRefGen;
         std::vector<SP<Layouts::SLuaLayoutProvider>> m_luaLayoutProviders;
+
+        std::unordered_map<std::string, std::string> m_moduleNameByPath;
 
         // this is here for legacy reasons.
         std::unordered_map<std::string, const void*> m_configPtrMap;

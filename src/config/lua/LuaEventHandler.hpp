@@ -32,10 +32,15 @@ namespace Config::Lua {
 
         // Store a Lua function (as a registry ref) to be called when `name` fires.
         // Returns a subscription handle, or std::nullopt if the event name is unknown.
-        std::optional<uint64_t> registerEvent(const std::string& name, int luaRef);
+        std::optional<uint64_t> registerEvent(const std::string& name, int luaRef, uint64_t generation = 0);
         bool                    unregisterEvent(uint64_t handle);
 
         void                    clearEvents();
+        size_t                  sweepEvents(uint64_t gen);
+        void                    sweepEvent(const std::string& eventName, int newRef, uint64_t currentGen);
+        size_t                  subscriptionCount() const {
+            return m_subscriptions.size();
+        }
 
         lua_State*              getLuaState() const {
             return m_lua;
@@ -51,6 +56,7 @@ namespace Config::Lua {
         struct SSubscription {
             std::string eventName;
             int         luaRef = -1;
+            uint64_t    generation = 0;
         };
 
         lua_State*                                             m_lua = nullptr;
