@@ -96,8 +96,8 @@ static void trackRequiredLuaModulePath(lua_State* L, CConfigManager* mgr, const 
 
     if (lua_pcall(L, 2, 2, 0) == LUA_OK && lua_isstring(L, -2)) {
         const auto* resolvedPath = lua_tostring(L, -2);
-        if (resolvedPath && std::ranges::find(mgr->m_configPaths, resolvedPath) == mgr->m_configPaths.end())
-            mgr->m_configPaths.emplace_back(resolvedPath);
+        if (resolvedPath)
+            mgr->addModulePath(resolvedPath, moduleName);
     }
 
     lua_settop(L, stackTop);
@@ -459,6 +459,10 @@ void CConfigManager::reload() {
     Config::workspaceRuleMgr()->clear();
     Config::monitorRuleMgr()->clear();
     Desktop::Rule::ruleEngine()->clearAllRules();
+    m_luaWindowRules.clear();
+    m_luaWindowRuleGen.clear();
+    m_luaLayerRules.clear();
+    m_luaLayerRuleGen.clear();
     g_pTrackpadGestures->clearGestures();
 
     reregisterLuaPluginFns();
@@ -485,6 +489,8 @@ void CConfigManager::reload() {
     sweepStaleRegistrations();
 
     lua_gc(m_lua, LUA_GCCOLLECT, 0);
+
+    Config::watcher()->update();
 
     postConfigReload();
 }
@@ -566,6 +572,8 @@ void CConfigManager::reloadModule(const std::string& filePath) {
     }
 
     lua_gc(m_lua, LUA_GCCOLLECT, 0);
+
+    Config::watcher()->update();
 
     postConfigReload();
 }
@@ -823,6 +831,13 @@ void CConfigManager::addError(std::string&& str) {
 
     // pop a notification
     Notification::overlay()->addNotification(std::format("Runtime error in lua:\n{}", std::move(str)), 0, 5000, ICON_WARNING);
+}
+
+void CConfigManager::addModulePath(const std::string& path, const std::string& moduleName) {
+    if (std::ranges::find(m_configPaths, path) == m_configPaths.end())
+        m_configPaths.emplace_back(path);
+    if (!m_moduleNameByPath.contains(path))
+        m_moduleNameByPath[path] = moduleName;
 }
 
 void CConfigManager::addEvalIssue(const Config::SConfigError& err) {

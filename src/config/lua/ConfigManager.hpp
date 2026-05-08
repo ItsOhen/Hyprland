@@ -103,6 +103,8 @@ namespace Config::Lua {
 
         static CConfigManager*     fromLuaState(lua_State* L);
 
+        void                       addModulePath(const std::string& path, const std::string& moduleName);
+
         static constexpr int       LUA_WATCHDOG_INSTRUCTION_INTERVAL = 10000;
         static constexpr int       LUA_TIMEOUT_CONFIG_RELOAD_MS      = 1500;
         static constexpr int       LUA_TIMEOUT_EVENT_CALLBACK_MS     = 50;

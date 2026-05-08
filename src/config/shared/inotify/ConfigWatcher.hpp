@@ -16,6 +16,7 @@ namespace Config {
         };
 
         void                            update();
+        void                            drainStaleEvents();
 
         Hyprutils::OS::CFileDescriptor& getInotifyFD();
         void                            setWatchList(const std::vector<std::string>& paths);
