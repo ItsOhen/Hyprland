@@ -527,6 +527,7 @@ void CConfigManager::reloadModule(const std::string& filePath) {
                          m_deviceConfigs.size(), m_registeredPlugins.size(), m_heldLuaRefs.size(), eventSubs, luaBinds);
     }
 
+    m_errors.clear();
     m_isParsingConfig = true;
     m_reloadGeneration++;
     Hyprutils::Utils::CScopeGuard x([this] { m_isParsingConfig = false; });
