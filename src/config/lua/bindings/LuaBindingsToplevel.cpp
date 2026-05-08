@@ -121,6 +121,31 @@ static std::expected<void, std::string> parseKeyString(SKeybind& kb, std::string
     return {};
 }
 
+static void copyUpvalues(lua_State* L, int oldFuncIdx, int newFuncIdx, std::string context = {}) {
+    oldFuncIdx = lua_absindex(L, oldFuncIdx);
+    newFuncIdx = lua_absindex(L, newFuncIdx);
+    int copied = 0;
+    for (int i = 1;; i++) {
+        const char* name = lua_getupvalue(L, oldFuncIdx, i);
+        if (!name)
+            break;
+        lua_getupvalue(L, newFuncIdx, i);
+        if (std::string_view(name) == "_ENV") {
+            lua_pop(L, 2);
+            continue;
+        }
+        if (lua_isnil(L, -1) && !lua_isnil(L, -2)) {
+            lua_pop(L, 1);
+            lua_setupvalue(L, newFuncIdx, i);
+            copied++;
+        } else {
+            lua_pop(L, 2);
+        }
+    }
+    if (copied > 0)
+        Log::logger->log(Log::DEBUG, "[lua] copyUpvalues({}): copied {} upvalue(s) from old closure", context.empty() ? "?" : context, copied);
+}
+
 static int hlBind(lua_State* L) {
     auto*            mgr = sc<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
 
@@ -143,6 +168,7 @@ static int hlBind(lua_State* L) {
     kb.handler    = "__lua";
     kb.arg        = std::to_string(ref);
     kb.displayKey = keys;
+    mgr->m_luaKeybindRefGen[ref] = !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0;
 
     int optsIdx = 3;
 
@@ -236,6 +262,34 @@ static int hlBind(lua_State* L) {
         }
         lua_pop(L, 1);
     }
+
+    // Copy upvalues from old closure to new, then remove old bind
+    for (const auto& existing : g_pKeybindManager->m_keybinds) {
+        if (existing->handler != "__lua")
+            continue;
+        if (existing->catchAll != kb.catchAll)
+            continue;
+        if (!kb.catchAll && (existing->key != kb.key || existing->modmask != kb.modmask))
+            continue;
+        int oldRef = std::stoi(existing->arg);
+        lua_rawgeti(L, LUA_REGISTRYINDEX, oldRef);
+        lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
+        copyUpvalues(L, -2, -1, std::format("hl.bind(\"{}\")", keys));
+        lua_pop(L, 2);
+        break;
+    }
+    std::erase_if(g_pKeybindManager->m_keybinds, [&](const auto& existing) {
+        if (existing->handler != "__lua")
+            return false;
+        if (existing->catchAll != kb.catchAll)
+            return false;
+        if (!kb.catchAll && (existing->key != kb.key || existing->modmask != kb.modmask))
+            return false;
+        int oldRef = std::stoi(existing->arg);
+        luaL_unref(L, LUA_REGISTRYINDEX, oldRef);
+        mgr->m_luaKeybindRefGen.erase(oldRef);
+        return true;
+    });
 
     const auto BIND = g_pKeybindManager->addKeybind(kb);
     Objects::CLuaKeybind::push(L, BIND);
@@ -381,7 +435,13 @@ static int hlOn(lua_State* L) {
     lua_pushvalue(L, 2);
     int        ref = luaL_ref(L, LUA_REGISTRYINDEX);
 
-    const auto handle = mgr->m_eventHandler->registerEvent(eventName, ref);
+    const auto gen = !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0;
+
+    // Copy upvalues from old callback for same event, then remove old subs
+    if (mgr->m_eventHandler)
+        mgr->m_eventHandler->sweepEvent(eventName, ref, gen);
+
+    const auto handle = mgr->m_eventHandler->registerEvent(eventName, ref, gen);
     if (!handle.has_value()) {
         luaL_unref(L, LUA_REGISTRYINDEX, ref);
         const auto& known = CLuaEventHandler::knownEvents();
@@ -459,7 +519,7 @@ static int hlTimer(lua_State* L) {
         },
         nullptr);
 
-    mgr->m_luaTimers.emplace_back(CConfigManager::SLuaTimer{timer, fnRef, coRef, co});
+    mgr->m_luaTimers.emplace_back(CConfigManager::SLuaTimer{timer, fnRef, coRef, co, !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0});
 
     if (g_pEventLoopManager)
         g_pEventLoopManager->addTimer(timer);

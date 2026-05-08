@@ -159,13 +159,13 @@ CLuaEventHandler::~CLuaEventHandler() {
     clearEvents();
 }
 
-std::optional<uint64_t> CLuaEventHandler::registerEvent(const std::string& name, int luaRef) {
+std::optional<uint64_t> CLuaEventHandler::registerEvent(const std::string& name, int luaRef, uint64_t generation) {
     if (!knownEvents().contains(name))
         return std::nullopt;
 
     const auto handle = m_nextHandle++;
     m_callbacks[name].push_back(handle);
-    m_subscriptions[handle] = {.eventName = name, .luaRef = luaRef};
+    m_subscriptions[handle] = {.eventName = name, .luaRef = luaRef, .generation = generation};
 
     return handle;
 }
@@ -200,6 +200,70 @@ void CLuaEventHandler::clearEvents() {
     m_activeHandles.clear();
     m_reentrancyWarnedHandles.clear();
     m_callbacks.clear();
+}
+
+size_t CLuaEventHandler::sweepEvents(uint64_t gen) {
+    std::vector<uint64_t> toRemove;
+    for (const auto& [handle, sub] : m_subscriptions) {
+        if (sub.generation != 0 && sub.generation != gen)
+            toRemove.push_back(handle);
+    }
+    for (const auto& handle : toRemove) {
+        unregisterEvent(handle);
+    }
+    return toRemove.size();
+}
+
+void CLuaEventHandler::sweepEvent(const std::string& eventName, int newRef, uint64_t currentGen) {
+    auto it = m_callbacks.find(eventName);
+    if (it == m_callbacks.end() || it->second.empty())
+        return;
+
+    uint64_t oldHandle = 0;
+    int      oldRef    = 0;
+    for (auto handle : it->second) {
+        auto subIt = m_subscriptions.find(handle);
+        if (subIt == m_subscriptions.end() || subIt->second.generation == currentGen || subIt->second.generation == 0)
+            continue;
+        oldHandle = handle;
+        oldRef    = subIt->second.luaRef;
+        break;
+    }
+
+    if (oldHandle == 0)
+        return;
+
+    lua_rawgeti(m_lua, LUA_REGISTRYINDEX, oldRef);
+    lua_rawgeti(m_lua, LUA_REGISTRYINDEX, newRef);
+
+    const int oldFuncIdx = lua_gettop(m_lua) - 1;
+    const int newFuncIdx = lua_gettop(m_lua);
+
+    int copied = 0;
+    for (int i = 1;; i++) {
+        const char* name = lua_getupvalue(m_lua, oldFuncIdx, i);
+        if (!name)
+            break;
+        lua_getupvalue(m_lua, newFuncIdx, i);
+        if (std::string_view(name) == "_ENV") {
+            lua_pop(m_lua, 2);
+            continue;
+        }
+        if (lua_isnil(m_lua, -1) && !lua_isnil(m_lua, -2)) {
+            lua_pop(m_lua, 1);
+            lua_setupvalue(m_lua, newFuncIdx, i);
+            copied++;
+        } else {
+            lua_pop(m_lua, 2);
+        }
+    }
+
+    lua_pop(m_lua, 2);
+
+    if (copied > 0)
+        Log::logger->log(Log::DEBUG, "[lua] sweepEvent(\"{}\"): copied {} upvalue(s) from old closure", eventName, copied);
+
+    unregisterEvent(oldHandle);
 }
 
 const std::unordered_set<std::string>& CLuaEventHandler::knownEvents() {

@@ -545,6 +545,7 @@ static int hlPluginLoad(lua_State* L) {
         return Internal::configError(L, "hl.plugin.load: path must not be empty");
 
     mgr->m_registeredPlugins.emplace_back(path);
+    mgr->m_registeredPluginGen[path] = !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0;
     return 0;
 }
 
@@ -977,8 +978,10 @@ static int hlDevice(lua_State* L) {
         auto err = val->parse(L);
         if (err.errorCode != PARSE_ERROR_OK)
             self->addError(std::format("{}: hl.device: field '{}': {}", sourceInfo, key, err.message));
-        else
+        else {
             self->m_deviceConfigs[devName].values.insert_or_assign(key, std::move(val));
+            self->m_deviceConfigGen[devName] = !self->isDynamicParse() ? self->m_reloadGeneration : 0;
+        }
 
         lua_pop(L, 1);
     }
@@ -1076,11 +1079,14 @@ static int hlWindowRule(lua_State* L) {
 
     SP<Desktop::Rule::CWindowRule> rule;
     if (!name.empty() && self->m_luaWindowRules.contains(name)) {
-        rule = self->m_luaWindowRules[name];
+        rule                                          = self->m_luaWindowRules[name];
+        self->m_luaWindowRuleGen[name]                = !self->isDynamicParse() ? self->m_reloadGeneration : 0;
     } else {
         rule = makeShared<Desktop::Rule::CWindowRule>(name);
-        if (!name.empty())
-            self->m_luaWindowRules[name] = rule;
+        if (!name.empty()) {
+            self->m_luaWindowRules[name]    = rule;
+            self->m_luaWindowRuleGen[name]  = !self->isDynamicParse() ? self->m_reloadGeneration : 0;
+        }
         Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>(rule));
     }
     rule->setEnabled(enabled);
@@ -1186,11 +1192,14 @@ static int hlLayerRule(lua_State* L) {
 
     SP<Desktop::Rule::CLayerRule> rule;
     if (!name.empty() && self->m_luaLayerRules.contains(name)) {
-        rule = self->m_luaLayerRules[name];
+        rule                                        = self->m_luaLayerRules[name];
+        self->m_luaLayerRuleGen[name]               = !self->isDynamicParse() ? self->m_reloadGeneration : 0;
     } else {
         rule = makeShared<Desktop::Rule::CLayerRule>(name);
-        if (!name.empty())
+        if (!name.empty()) {
             self->m_luaLayerRules[name] = rule;
+            self->m_luaLayerRuleGen[name]           = !self->isDynamicParse() ? self->m_reloadGeneration : 0;
+        }
         Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>(rule));
     }
     rule->setEnabled(enabled);

@@ -263,11 +263,12 @@ std::expected<void, std::string> CConfigManager::registerLuaLayoutProvider(std::
     lua_pushvalue(L, providerTableIdx);
     const int ref = luaL_ref(L, LUA_REGISTRYINDEX);
 
-    auto      provider = makeShared<SLuaLayoutProvider>();
-    provider->manager  = this;
-    provider->state    = L;
-    provider->name     = name;
-    provider->tableRef = ref;
+    auto      provider     = makeShared<SLuaLayoutProvider>();
+    provider->manager      = this;
+    provider->state        = L;
+    provider->name         = name;
+    provider->tableRef     = ref;
+    provider->generation   = m_isParsingConfig ? m_reloadGeneration : 0;
 
     if (!Layout::Supplementary::algoMatcher()->registerTiledAlgo(name, &typeid(CLuaTiledAlgorithm), [provider] { return makeUnique<CLuaTiledAlgorithm>(provider); })) {
         luaL_unref(L, LUA_REGISTRYINDEX, ref);
