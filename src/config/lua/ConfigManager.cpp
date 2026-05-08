@@ -533,8 +533,7 @@ void CConfigManager::reloadModule(const std::string& filePath) {
     m_reloadGeneration++;
     Hyprutils::Utils::CScopeGuard x([this] { m_isParsingConfig = false; });
 
-    // NOTE: we do NOT sweep here — timers/events should survive module reload
-    // and be updated via copyUpvalues / re-registration
+    // clear package.loaded[moduleName] so require() re-executes the module
     lua_getglobal(m_lua, "package");
     lua_getfield(m_lua, -1, "loaded");
     lua_pushstring(m_lua, moduleName.c_str());

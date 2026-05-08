@@ -148,118 +148,107 @@ static void copyUpvalues(lua_State* L, int oldFuncIdx, int newFuncIdx, std::stri
 }
 
 static int hlBind(lua_State* L) {
-    auto* mgr = sc<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
-
-    auto  str = Check::string(L, 1);
-    if (!str)
-        return Internal::configError(L, std::format("bind: bad argument 1: {}", str.error()));
-
-    std::string_view keys = *str;
+    auto*            mgr  = (CConfigManager*)lua_touserdata(L, lua_upvalueindex(1));
+    std::string_view keys = luaL_checkstring(L, 1);
 
     SKeybind         kb;
-    kb.submap.name  = mgr->m_currentSubmap;
-    kb.submap.reset = mgr->m_currentSubmapReset;
+    kb.submap = {mgr->m_currentSubmap, mgr->m_currentSubmapReset};
 
     if (auto res = parseKeyString(kb, keys); !res)
-        return Internal::configError(L, std::format("hl.bind: failed to parse key string: {}", res.error()));
+        return Internal::configError(L, std::format("hl.bind: failed parse: {}", res.error()));
 
     if (!Internal::pushDispatcherFunction(L, 2))
-        return Internal::configError(L, "hl.bind: dispatcher must be a dispatcher (e.g. hl.dsp.window.close()) or a lua function");
+        return Internal::configError(L, "hl.bind: dispatcher must be a function or hl.dsp");
 
-    if (kb.catchAll && mgr->m_currentSubmap.empty())
-        return Internal::configError(L, "hl.bind: catchall keybinds are only allowed in submaps.");
+    if (kb.catchAll && kb.submap.name.empty())
+        return Internal::configError(L, "hl.bind: catchall requires a submap.");
 
-    int ref                      = luaL_ref(L, LUA_REGISTRYINDEX);
-    kb.handler                   = "__lua";
-    kb.arg                       = std::to_string(ref);
-    kb.displayKey                = keys;
-    mgr->m_luaKeybindRefGen[ref] = !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0;
+    SP<SKeybind> pTarget = nullptr;
+    for (const auto& ex : g_pKeybindManager->m_keybinds) {
+        if (ex->handler == "__lua" && ex->submap.name == kb.submap.name && ex->catchAll == kb.catchAll && (kb.catchAll || (ex->key == kb.key && ex->modmask == kb.modmask))) {
+            pTarget = ex;
+            break;
+        }
+    }
 
-    int optsIdx = 3;
+    int newRef = luaL_ref(L, LUA_REGISTRYINDEX);
 
-    if (lua_istable(L, optsIdx)) {
-        auto getBool = [&](const char* field) -> bool {
-            lua_getfield(L, optsIdx, field);
-            const bool v = lua_toboolean(L, -1);
+    if (pTarget) {
+        int oldRef = std::stoi(pTarget->arg);
+        lua_rawgeti(L, LUA_REGISTRYINDEX, oldRef);
+        lua_rawgeti(L, LUA_REGISTRYINDEX, newRef);
+        copyUpvalues(L, -2, -1, std::format("hl.bind(\"{}\")", keys));
+        lua_pop(L, 2);
+
+        luaL_unref(L, LUA_REGISTRYINDEX, oldRef);
+        mgr->m_luaKeybindRefGen.erase(oldRef);
+        pTarget->arg = std::to_string(newRef);
+    } else {
+        kb.handler    = "__lua";
+        kb.arg        = std::to_string(newRef);
+        kb.displayKey = keys;
+        pTarget       = g_pKeybindManager->addKeybind(kb);
+    }
+
+    mgr->m_luaKeybindRefGen[newRef] = !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0;
+
+    if (lua_istable(L, 3)) {
+        auto getB = [&](const char* f) {
+            lua_getfield(L, 3, f);
+            bool v = lua_toboolean(L, -1);
             lua_pop(L, 1);
             return v;
         };
-
-        auto readOptString = [&](const char* field) -> std::optional<std::string> {
-            lua_getfield(L, optsIdx, field);
-
-            if (lua_isnil(L, -1)) {
-                lua_pop(L, 1);
-                return std::nullopt;
-            }
-
-            if (!lua_isstring(L, -1)) {
-                lua_pop(L, 1);
-                Internal::configError(L, "hl.bind: opts.{} must be a string", field);
-                return std::nullopt;
-            }
-
-            std::string result = lua_tostring(L, -1);
+        auto getS = [&](const char* f) {
+            lua_getfield(L, 3, f);
+            std::optional<std::string> s;
+            if (lua_isstring(L, -1))
+                s = lua_tostring(L, -1);
             lua_pop(L, 1);
-            return result;
+            return s;
         };
 
-        kb.repeat          = getBool("repeating");
-        kb.locked          = getBool("locked");
-        kb.release         = getBool("release");
-        kb.nonConsuming    = getBool("non_consuming");
-        kb.autoConsuming   = getBool("auto_consuming");
-        kb.transparent     = getBool("transparent");
-        kb.ignoreMods      = getBool("ignore_mods");
-        kb.dontInhibit     = getBool("dont_inhibit");
-        kb.longPress       = getBool("long_press");
-        kb.submapUniversal = getBool("submap_universal");
+        pTarget->repeat          = getB("repeating");
+        pTarget->locked          = getB("locked");
+        pTarget->release         = getB("release");
+        pTarget->nonConsuming    = getB("non_consuming");
+        pTarget->autoConsuming   = getB("auto_consuming");
+        pTarget->transparent     = getB("transparent");
+        pTarget->ignoreMods      = getB("ignore_mods");
+        pTarget->dontInhibit     = getB("dont_inhibit");
+        pTarget->longPress       = getB("long_press");
+        pTarget->submapUniversal = getB("submap_universal");
 
-        if (auto description = readOptString("description"); description.has_value()) {
-            kb.description    = *description;
-            kb.hasDescription = true;
-        } else if (auto desc = readOptString("desc"); desc.has_value()) {
-            kb.description    = *desc;
-            kb.hasDescription = true;
+        if (auto d = getS("description"); d) {
+            pTarget->description    = *d;
+            pTarget->hasDescription = true;
+        } else if (auto ds = getS("desc"); ds) {
+            pTarget->description    = *ds;
+            pTarget->hasDescription = true;
         }
 
-        bool click = false;
-        bool drag  = false;
-
-        if (getBool("click")) {
-            click      = true;
-            kb.release = true;
+        if (getB("click")) {
+            pTarget->click   = true;
+            pTarget->release = true;
+        }
+        if (getB("drag")) {
+            pTarget->drag    = true;
+            pTarget->release = true;
         }
 
-        if (getBool("drag")) {
-            drag       = true;
-            kb.release = true;
-        }
-
-        if (click && drag)
-            return Internal::configError(L, "hl.bind: click and drag are exclusive");
-
-        if ((kb.longPress || kb.release) && kb.repeat)
-            return Internal::configError(L, "hl.bind: long_press / release is incompatible with repeat");
-
-        if (kb.mouse && (kb.repeat || kb.release || kb.locked))
-            return Internal::configError(L, "hl.bind: mouse is exclusive");
-
-        kb.click = click;
-        kb.drag  = drag;
-
-        lua_getfield(L, optsIdx, "device");
+        lua_getfield(L, 3, "device");
         if (lua_istable(L, -1)) {
             lua_getfield(L, -1, "inclusive");
-            kb.deviceInclusive = lua_isnil(L, -1) ? true : lua_toboolean(L, -1);
+            pTarget->deviceInclusive = lua_isnil(L, -1) || lua_toboolean(L, -1);
             lua_pop(L, 1);
 
             lua_getfield(L, -1, "list");
             if (lua_istable(L, -1)) {
+                pTarget->devices.clear();
                 lua_pushnil(L);
                 while (lua_next(L, -2)) {
                     if (lua_isstring(L, -1))
-                        kb.devices.emplace(lua_tostring(L, -1));
+                        pTarget->devices.emplace(lua_tostring(L, -1));
                     lua_pop(L, 1);
                 }
             }
@@ -268,36 +257,7 @@ static int hlBind(lua_State* L) {
         lua_pop(L, 1);
     }
 
-    // Copy upvalues from old closure to new, then remove old bind
-    for (const auto& existing : g_pKeybindManager->m_keybinds) {
-        if (existing->handler != "__lua")
-            continue;
-        if (existing->catchAll != kb.catchAll)
-            continue;
-        if (!kb.catchAll && (existing->key != kb.key || existing->modmask != kb.modmask))
-            continue;
-        int oldRef = std::stoi(existing->arg);
-        lua_rawgeti(L, LUA_REGISTRYINDEX, oldRef);
-        lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
-        copyUpvalues(L, -2, -1, std::format("hl.bind(\"{}\")", keys));
-        lua_pop(L, 2);
-        break;
-    }
-    std::erase_if(g_pKeybindManager->m_keybinds, [&](const auto& existing) {
-        if (existing->handler != "__lua")
-            return false;
-        if (existing->catchAll != kb.catchAll)
-            return false;
-        if (!kb.catchAll && (existing->key != kb.key || existing->modmask != kb.modmask))
-            return false;
-        int oldRef = std::stoi(existing->arg);
-        luaL_unref(L, LUA_REGISTRYINDEX, oldRef);
-        mgr->m_luaKeybindRefGen.erase(oldRef);
-        return true;
-    });
-
-    const auto BIND = g_pKeybindManager->addKeybind(kb);
-    Objects::CLuaKeybind::push(L, BIND);
+    Objects::CLuaKeybind::push(L, pTarget);
     return 1;
 }
 
