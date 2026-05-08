@@ -1,24 +1,42 @@
 #!/bin/sh
 
 SHADERS_SRC="./src/render/shaders/glsl"
+OUTDIR="./src/render/shaders"
 
 echo "-- Generating shader includes"
 
-if [ ! -d ./src/render/shaders ]; then
-	mkdir ./src/render/shaders
+if [ ! -d "${OUTDIR}" ]; then
+    mkdir -p "${OUTDIR}"
 fi
 
-echo '#pragma once' > ./src/render/shaders/Shaders.hpp
-echo '#include <map>' >> ./src/render/shaders/Shaders.hpp
-echo 'static const std::map<std::string, std::string> SHADERS = {' >> ./src/render/shaders/Shaders.hpp
+HPP_TMP="$(mktemp)"
+echo '#pragma once' > "${HPP_TMP}"
+echo '#include <map>' >> "${HPP_TMP}"
+echo 'static const std::map<std::string, std::string> SHADERS = {' >> "${HPP_TMP}"
 
-for filename in `ls ${SHADERS_SRC}`; do
-	echo "--	${filename}"
-	
-	{ echo -n 'R"#('; cat ${SHADERS_SRC}/${filename}; echo ')#"'; } > ./src/render/shaders/${filename}.inc
-	echo "{\"${filename}\"," >> ./src/render/shaders/Shaders.hpp
-	echo "#include \"./${filename}.inc\"" >> ./src/render/shaders/Shaders.hpp
-	echo "}," >> ./src/render/shaders/Shaders.hpp
+for filename in $(ls "${SHADERS_SRC}"); do
+    echo "--	${filename}"
+
+    INC_TMP="$(mktemp)"
+    { echo -n 'R"#('; cat "${SHADERS_SRC}/${filename}"; echo ')#"'; } > "${INC_TMP}"
+
+    INC_DST="${OUTDIR}/${filename}.inc"
+    if ! cmp -s "${INC_TMP}" "${INC_DST}" 2>/dev/null; then
+        mv "${INC_TMP}" "${INC_DST}"
+    else
+        rm "${INC_TMP}"
+    fi
+
+    echo "{\"${filename}\"," >> "${HPP_TMP}"
+    echo "#include \"./${filename}.inc\"" >> "${HPP_TMP}"
+    echo "}," >> "${HPP_TMP}"
 done
 
-echo '};' >> ./src/render/shaders/Shaders.hpp
+echo '};' >> "${HPP_TMP}"
+
+HPP_DST="${OUTDIR}/Shaders.hpp"
+if ! cmp -s "${HPP_TMP}" "${HPP_DST}" 2>/dev/null; then
+    mv "${HPP_TMP}" "${HPP_DST}"
+else
+    rm "${HPP_TMP}"
+fi
