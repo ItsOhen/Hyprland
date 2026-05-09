@@ -27,86 +27,35 @@ static constexpr auto C_UNAVAIL  = CA::eActionErrorCode::UNAVAILABLE;
 static constexpr auto C_EXECFAIL = CA::eActionErrorCode::EXECUTION_FAILED;
 
 static int            dsp_moveCursorToCorner(lua_State* L) {
-    int  corner = (int)lua_tonumber(L, lua_upvalueindex(1));
-    auto win    = Internal::windowFromUpval(L, 2);
-    Config::Lua::postToMain([corner, win]() {
-        auto result = CA::moveCursorToCorner(corner, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::moveCursorToCorner((int)lua_tonumber(L, lua_upvalueindex(1)), Internal::windowFromUpval(L, 2)));
 }
 
 static int dsp_moveCursor(lua_State* L) {
-    Vector2D vec{lua_tonumber(L, lua_upvalueindex(1)), lua_tonumber(L, lua_upvalueindex(2))};
-    Config::Lua::postToMain([vec]() {
-        auto result = CA::moveCursor(vec);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::moveCursor(Vector2D{lua_tonumber(L, lua_upvalueindex(1)), lua_tonumber(L, lua_upvalueindex(2))}));
 }
 
 static int dsp_toggleGroup(lua_State* L) {
-    auto win = Internal::windowFromUpval(L, 1);
-    Config::Lua::postToMain([win]() {
-        auto result = CA::toggleGroup(win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::toggleGroup(Internal::windowFromUpval(L, 1)));
 }
 
 static int dsp_changeGroupActive(lua_State* L) {
-    bool active = lua_toboolean(L, lua_upvalueindex(1));
-    auto win    = Internal::windowFromUpval(L, 2);
-    Config::Lua::postToMain([active, win]() {
-        auto result = CA::changeGroupActive(active, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::changeGroupActive(lua_toboolean(L, lua_upvalueindex(1)), Internal::windowFromUpval(L, 2)));
 }
 
 static int dsp_setGroupActive(lua_State* L) {
-    int  index = (int)lua_tonumber(L, lua_upvalueindex(1));
-    auto win   = Internal::windowFromUpval(L, 2);
-    Config::Lua::postToMain([index, win]() {
-        auto result = CA::setGroupActive(index, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::setGroupActive((int)lua_tonumber(L, lua_upvalueindex(1)), Internal::windowFromUpval(L, 2)));
 }
 
 static int dsp_moveGroupWindow(lua_State* L) {
-    bool forward = lua_toboolean(L, lua_upvalueindex(1));
-    Config::Lua::postToMain([forward]() {
-        auto result = CA::moveGroupWindow(forward);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::moveGroupWindow(lua_toboolean(L, lua_upvalueindex(1))));
 }
 
 static int dsp_lockGroups(lua_State* L) {
-    auto action = sc<CA::eTogglableAction>((int)lua_tonumber(L, lua_upvalueindex(1)));
-    Config::Lua::postToMain([action]() {
-        auto result = CA::lockGroups(action);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::lockGroups(sc<CA::eTogglableAction>((int)lua_tonumber(L, lua_upvalueindex(1)))));
 }
 
 static int dsp_lockActiveGroup(lua_State* L) {
-    auto action = sc<CA::eTogglableAction>((int)lua_tonumber(L, lua_upvalueindex(1)));
-    Config::Lua::postToMain([action]() {
-        auto result = CA::lockActiveGroup(action);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::lockActiveGroup(sc<CA::eTogglableAction>((int)lua_tonumber(L, lua_upvalueindex(1)))));
 }
 
 static int hlCursorMoveToCorner(lua_State* L) {
@@ -215,100 +164,51 @@ static int dsp_execRaw(lua_State* L) {
 }
 
 static int dsp_exit(lua_State* L) {
-    Config::Lua::postToMain([]() {
-        auto result = CA::exit();
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::exit());
 }
 
 static int dsp_submap(lua_State* L) {
-    std::string name = lua_tostring(L, lua_upvalueindex(1));
-    Config::Lua::postToMain([name]() {
-        auto result = CA::setSubmap(name);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::setSubmap(lua_tostring(L, lua_upvalueindex(1))));
 }
 
 static int dsp_pass(lua_State* L) {
-    const auto regex   = lua_tostring(L, lua_upvalueindex(1));
-    const auto PWINDOW = g_pCompositor->getWindowByRegex(regex);
+    const auto PWINDOW = g_pCompositor->getWindowByRegex(lua_tostring(L, lua_upvalueindex(1)));
     if (!PWINDOW)
         return Internal::dispatcherError(L, "hl.pass: window not found", WARN, C_NOTFOUND);
-
-    Config::Lua::postToMain([PWINDOW]() {
-        auto result = CA::pass(PWINDOW);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::pass(PWINDOW));
 }
 
 static int dsp_layoutMsg(lua_State* L) {
-    std::string msg = lua_tostring(L, lua_upvalueindex(1));
-    Config::Lua::postToMain([msg]() {
-        auto result = CA::layoutMessage(msg);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::layoutMessage(lua_tostring(L, lua_upvalueindex(1))));
 }
 
 static int dsp_dpms(lua_State* L) {
-    auto        action  = sc<CA::eTogglableAction>((int)lua_tonumber(L, lua_upvalueindex(1)));
-    std::string monName = lua_isnil(L, lua_upvalueindex(2)) ? "" : lua_tostring(L, lua_upvalueindex(2));
+    auto                      action = sc<CA::eTogglableAction>((int)lua_tonumber(L, lua_upvalueindex(1)));
+    std::optional<PHLMONITOR> mon    = std::nullopt;
 
-    Config::Lua::postToMain([action, monName]() {
-        std::optional<PHLMONITOR> mon = std::nullopt;
-        if (!monName.empty())
-            mon = g_pCompositor->getMonitorFromString(monName);
-        auto result = CA::dpms(action, mon);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    if (!lua_isnil(L, lua_upvalueindex(2))) {
+        auto m = g_pCompositor->getMonitorFromString(lua_tostring(L, lua_upvalueindex(2)));
+        if (m)
+            mon = m;
+    }
+
+    return Internal::checkResult(L, CA::dpms(action, mon));
 }
 
 static int dsp_event(lua_State* L) {
-    std::string event = lua_tostring(L, lua_upvalueindex(1));
-    Config::Lua::postToMain([event]() {
-        auto result = CA::event(event);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::event(lua_tostring(L, lua_upvalueindex(1))));
 }
 
 static int dsp_global(lua_State* L) {
-    std::string global = lua_tostring(L, lua_upvalueindex(1));
-    Config::Lua::postToMain([global]() {
-        auto result = CA::global(global);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::global(lua_tostring(L, lua_upvalueindex(1))));
 }
 
 static int dsp_forceRendererReload(lua_State* L) {
-    Config::Lua::postToMain([]() {
-        auto result = CA::forceRendererReload();
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::forceRendererReload());
 }
 
 static int dsp_forceIdle(lua_State* L) {
-    float idle = (float)lua_tonumber(L, lua_upvalueindex(1));
-    Config::Lua::postToMain([idle]() {
-        auto result = CA::forceIdle(idle);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::forceIdle((float)lua_tonumber(L, lua_upvalueindex(1))));
 }
 
 static int hlExecCmd(lua_State* L) {
@@ -448,22 +348,18 @@ static int dsp_sendShortcut(lua_State* L) {
     const std::string key         = lua_tostring(L, lua_upvalueindex(2));
     const std::string winSelector = lua_isnil(L, lua_upvalueindex(3)) ? "" : lua_tostring(L, lua_upvalueindex(3));
 
-    Config::Lua::postToMain([modStr, key, winSelector]() {
-        const uint32_t modMask       = g_pKeybindManager->stringToModMask(modStr);
-        auto           keycodeResult = resolveKeycode(key);
-        if (!keycodeResult)
-            return;
-        PHLWINDOW window = nullptr;
-        if (!winSelector.empty()) {
-            window = g_pCompositor->getWindowByRegex(winSelector);
-            if (!window)
-                return;
-        }
-        auto result = CA::pass(modMask, *keycodeResult, window);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    const uint32_t    modMask       = g_pKeybindManager->stringToModMask(modStr);
+    auto              keycodeResult = resolveKeycode(key);
+    if (!keycodeResult)
+        return Internal::pushSuccessResult(L);
+
+    PHLWINDOW window = nullptr;
+    if (!winSelector.empty()) {
+        window = g_pCompositor->getWindowByRegex(winSelector);
+        if (!window)
+            return Internal::pushSuccessResult(L);
+    }
+    return Internal::checkResult(L, CA::pass(modMask, *keycodeResult, window));
 }
 
 static int dsp_sendKeyState(lua_State* L) {
@@ -472,22 +368,18 @@ static int dsp_sendKeyState(lua_State* L) {
     const uint32_t    keyState    = (uint32_t)lua_tonumber(L, lua_upvalueindex(3));
     const std::string winSelector = lua_isnil(L, lua_upvalueindex(4)) ? "" : lua_tostring(L, lua_upvalueindex(4));
 
-    Config::Lua::postToMain([modStr, key, keyState, winSelector]() {
-        const uint32_t modMask       = g_pKeybindManager->stringToModMask(modStr);
-        auto           keycodeResult = resolveKeycode(key);
-        if (!keycodeResult)
-            return;
-        PHLWINDOW window = nullptr;
-        if (!winSelector.empty()) {
-            window = g_pCompositor->getWindowByRegex(winSelector);
-            if (!window)
-                return;
-        }
-        auto result = CA::sendKeyState(modMask, *keycodeResult, keyState, window);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    const uint32_t    modMask       = g_pKeybindManager->stringToModMask(modStr);
+    auto              keycodeResult = resolveKeycode(key);
+    if (!keycodeResult)
+        return Internal::pushSuccessResult(L);
+
+    PHLWINDOW window = nullptr;
+    if (!winSelector.empty()) {
+        window = g_pCompositor->getWindowByRegex(winSelector);
+        if (!window)
+            return Internal::pushSuccessResult(L);
+    }
+    return Internal::checkResult(L, CA::sendKeyState(modMask, *keycodeResult, keyState, window));
 }
 
 static int hlSendShortcut(lua_State* L) {
@@ -535,12 +427,7 @@ static int dsp_moveToWorkspace(lua_State* L) {
 
     bool silent = lua_toboolean(L, lua_upvalueindex(2));
     auto win    = Internal::windowFromUpval(L, 3);
-    Config::Lua::postToMain([ws, silent, win]() {
-        auto result = CA::moveToWorkspace(ws, silent, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::moveToWorkspace(ws, silent, win));
 }
 
 static int dsp_moveToMonitor(lua_State* L) {
@@ -550,97 +437,48 @@ static int dsp_moveToMonitor(lua_State* L) {
 
     bool silent = lua_toboolean(L, lua_upvalueindex(2));
     auto win    = Internal::windowFromUpval(L, 3);
-    Config::Lua::postToMain([mon, silent, win]() {
-        auto result = CA::moveToWorkspace(mon->m_activeWorkspace, silent, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::moveToWorkspace(mon->m_activeWorkspace, silent, win));
 }
 
 static int dsp_closeWindow(lua_State* L) {
-    auto win = Internal::windowFromUpval(L, 1);
-    Config::Lua::postToMain([win]() {
-        auto result = CA::closeWindow(win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::closeWindow(Internal::windowFromUpval(L, 1)));
 }
 
 static int dsp_killWindow(lua_State* L) {
-    auto win = Internal::windowFromUpval(L, 1);
-    Config::Lua::postToMain([win]() {
-        auto result = CA::killWindow(win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::killWindow(Internal::windowFromUpval(L, 1)));
 }
 
 static int dsp_signalWindow(lua_State* L) {
-    int  signal = (int)lua_tonumber(L, lua_upvalueindex(1));
-    auto win    = Internal::windowFromUpval(L, 2);
-    Config::Lua::postToMain([signal, win]() {
-        auto result = CA::signalWindow(signal, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    int signal = (int)lua_tonumber(L, lua_upvalueindex(1));
+    return Internal::checkResult(L, CA::signalWindow(signal, Internal::windowFromUpval(L, 2)));
 }
 
 static int dsp_floatWindow(lua_State* L) {
     auto action = sc<CA::eTogglableAction>((int)lua_tonumber(L, lua_upvalueindex(1)));
-    auto win    = Internal::windowFromUpval(L, 2);
-    Config::Lua::postToMain([action, win]() {
-        auto result = CA::floatWindow(action, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::floatWindow(action, Internal::windowFromUpval(L, 2)));
 }
 
 static int dsp_fullscreenWindow(lua_State* L) {
     auto mode = sc<eFullscreenMode>((int)lua_tonumber(L, lua_upvalueindex(1)));
-    auto win  = Internal::windowFromUpval(L, 2);
-    Config::Lua::postToMain([mode, win]() {
-        auto result = CA::fullscreenWindow(mode, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::fullscreenWindow(mode, Internal::windowFromUpval(L, 2)));
 }
 
 static int dsp_fullscreenWindowWithAction(lua_State* L) {
     const auto mode      = sc<eFullscreenMode>((int)lua_tonumber(L, lua_upvalueindex(1)));
     const int  actionRaw = (int)lua_tonumber(L, lua_upvalueindex(2));
     auto       maybeW    = Internal::windowFromUpval(L, 3);
+    const auto target    = maybeW.value_or(Desktop::focusState()->window());
 
-    Config::Lua::postToMain([mode, actionRaw, maybeW]() {
-        const auto target = maybeW.value_or(Desktop::focusState()->window());
-        if (!target)
-            return;
-        if (actionRaw == 0) {
-            auto result = CA::fullscreenWindow(mode, maybeW);
-            if (!result)
-                Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-            return;
-        }
-        const bool currentlyMode = target->isEffectiveInternalFSMode(mode);
-        if (actionRaw == 1) {
-            if (!currentlyMode) {
-                auto result = CA::fullscreenWindow(mode, maybeW);
-                if (!result)
-                    Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-            }
-        } else if (actionRaw == 2) {
-            if (currentlyMode) {
-                auto result = CA::fullscreenWindow(mode, maybeW);
-                if (!result)
-                    Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-            }
-        }
-    });
+    if (!target)
+        return Internal::pushSuccessResult(L);
+
+    if (actionRaw == 0)
+        return Internal::checkResult(L, CA::fullscreenWindow(mode, maybeW));
+
+    const bool currentlyMode = target->isEffectiveInternalFSMode(mode);
+    if ((actionRaw == 1 && !currentlyMode) || (actionRaw == 2 && currentlyMode))
+        return Internal::checkResult(L, CA::fullscreenWindow(mode, maybeW));
+
     return Internal::pushSuccessResult(L);
 }
 
@@ -649,75 +487,37 @@ static int dsp_fullscreenState(lua_State* L) {
     const auto desiredClient   = sc<eFullscreenMode>((int)lua_tonumber(L, lua_upvalueindex(2)));
     const int  actionRaw       = (int)lua_tonumber(L, lua_upvalueindex(3));
     auto       maybeW          = Internal::windowFromUpval(L, 4);
+    const auto target          = maybeW.value_or(Desktop::focusState()->window());
 
-    Config::Lua::postToMain([desiredInternal, desiredClient, actionRaw, maybeW]() {
-        const auto target = maybeW.value_or(Desktop::focusState()->window());
-        if (!target)
-            return;
-        const auto CURRENT        = target->m_fullscreenState;
-        const bool atDesiredState = CURRENT.internal == desiredInternal && CURRENT.client == desiredClient;
-        if (actionRaw == 0) {
-            auto result = CA::fullscreenWindow(desiredInternal, desiredClient, maybeW);
-            if (!result)
-                Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-        } else if (actionRaw == 1) {
-            if (!atDesiredState) {
-                auto result = CA::fullscreenWindow(desiredInternal, desiredClient, maybeW);
-                if (!result)
-                    Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-            }
-        } else if (actionRaw == 2) {
-            if (atDesiredState) {
-                auto result = CA::fullscreenWindow(desiredInternal, desiredClient, maybeW);
-                if (!result)
-                    Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-            }
-        }
-    });
+    if (!target)
+        return Internal::pushSuccessResult(L);
+
+    const auto CURRENT        = target->m_fullscreenState;
+    const bool atDesiredState = CURRENT.internal == desiredInternal && CURRENT.client == desiredClient;
+
+    if (actionRaw == 0 || (actionRaw == 1 && !atDesiredState) || (actionRaw == 2 && atDesiredState))
+        return Internal::checkResult(L, CA::fullscreenWindow(desiredInternal, desiredClient, maybeW));
+
     return Internal::pushSuccessResult(L);
 }
 
 static int dsp_pseudoWindow(lua_State* L) {
     auto action = sc<CA::eTogglableAction>((int)lua_tonumber(L, lua_upvalueindex(1)));
-    auto win    = Internal::windowFromUpval(L, 2);
-    Config::Lua::postToMain([action, win]() {
-        auto result = CA::pseudoWindow(action, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::pseudoWindow(action, Internal::windowFromUpval(L, 2)));
 }
 
 static int dsp_moveInDirection(lua_State* L) {
     auto dir = sc<Math::eDirection>((int)lua_tonumber(L, lua_upvalueindex(1)));
-    auto win = Internal::windowFromUpval(L, 2);
-    Config::Lua::postToMain([dir, win]() {
-        auto result = CA::moveInDirection(dir, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::moveInDirection(dir, Internal::windowFromUpval(L, 2)));
 }
 
 static int dsp_swapInDirection(lua_State* L) {
     auto dir = sc<Math::eDirection>((int)lua_tonumber(L, lua_upvalueindex(1)));
-    auto win = Internal::windowFromUpval(L, 2);
-    Config::Lua::postToMain([dir, win]() {
-        auto result = CA::swapInDirection(dir, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::swapInDirection(dir, Internal::windowFromUpval(L, 2)));
 }
 
 static int dsp_center(lua_State* L) {
-    auto win = Internal::windowFromUpval(L, 1);
-    Config::Lua::postToMain([win]() {
-        auto result = CA::center(win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::center(Internal::windowFromUpval(L, 1)));
 }
 
 static int dsp_cycleNext(lua_State* L) {
@@ -726,49 +526,26 @@ static int dsp_cycleNext(lua_State* L) {
     int                 floatingRaw = (int)lua_tonumber(L, lua_upvalueindex(3));
     std::optional<bool> tiled       = tiledRaw < 0 ? std::nullopt : std::optional(tiledRaw > 0);
     std::optional<bool> floating    = floatingRaw < 0 ? std::nullopt : std::optional(floatingRaw > 0);
-    auto                win         = Internal::windowFromUpval(L, 4);
-    Config::Lua::postToMain([next, tiled, floating, win]() {
-        auto result = CA::cycleNext(next, tiled, floating, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::cycleNext(next, tiled, floating, Internal::windowFromUpval(L, 4)));
 }
 
 static int dsp_swapNext(lua_State* L) {
     bool next = lua_toboolean(L, lua_upvalueindex(1));
-    auto win  = Internal::windowFromUpval(L, 2);
-    Config::Lua::postToMain([next, win]() {
-        auto result = CA::swapNext(next, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::swapNext(next, Internal::windowFromUpval(L, 2)));
 }
 
 static int dsp_swapWithWindow(lua_State* L) {
     auto       source         = Internal::windowFromUpval(L, 1);
     const auto targetSelector = lua_tostring(L, lua_upvalueindex(2));
-    Config::Lua::postToMain([source, targetSelector]() {
-        const auto target = g_pCompositor->getWindowByRegex(targetSelector);
-        if (target) {
-            auto result = CA::swapWith(target, source);
-            if (!result)
-                Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-        }
-    });
-    return Internal::pushSuccessResult(L);
+    const auto target         = g_pCompositor->getWindowByRegex(targetSelector);
+    if (!target)
+        return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::swapWith(target, source));
 }
 
 static int dsp_tagWindow(lua_State* L) {
     std::string tag = lua_tostring(L, lua_upvalueindex(1));
-    auto        win = Internal::windowFromUpval(L, 2);
-    Config::Lua::postToMain([tag, win]() {
-        auto result = CA::tag(tag, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::tag(tag, Internal::windowFromUpval(L, 2)));
 }
 
 static int dsp_clearTags(lua_State* L) {
@@ -776,151 +553,81 @@ static int dsp_clearTags(lua_State* L) {
 }
 
 static int dsp_toggleSwallow(lua_State* L) {
-    Config::Lua::postToMain([]() {
-        auto result = CA::toggleSwallow();
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::toggleSwallow());
 }
 
 static int dsp_bringToTop(lua_State* L) {
-    Config::Lua::postToMain([]() {
-        auto result = CA::alterZOrder("top");
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::alterZOrder("top"));
 }
 
 static int dsp_resize(lua_State* L) {
     Vector2D value{lua_tonumber(L, lua_upvalueindex(1)), lua_tonumber(L, lua_upvalueindex(2))};
     bool     relative = lua_toboolean(L, lua_upvalueindex(3));
     auto     win      = Internal::windowFromUpval(L, 4);
-    Config::Lua::postToMain([value, relative, win]() {
-        auto result = CA::resize(value, relative, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::resize(value, relative, win));
 }
 
 static int dsp_move(lua_State* L) {
     Vector2D value{lua_tonumber(L, lua_upvalueindex(1)), lua_tonumber(L, lua_upvalueindex(2))};
     bool     relative = lua_toboolean(L, lua_upvalueindex(3));
     auto     win      = Internal::windowFromUpval(L, 4);
-    Config::Lua::postToMain([value, relative, win]() {
-        auto result = CA::move(value, relative, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::move(value, relative, win));
 }
 
 static int dsp_pinWindow(lua_State* L) {
     auto action = sc<CA::eTogglableAction>((int)lua_tonumber(L, lua_upvalueindex(1)));
     auto win    = Internal::windowFromUpval(L, 2);
-    Config::Lua::postToMain([action, win]() {
-        auto result = CA::pinWindow(action, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::pinWindow(action, win));
 }
 
 static int dsp_alterZOrder(lua_State* L) {
     std::string mode = lua_tostring(L, lua_upvalueindex(1));
     auto        win  = Internal::windowFromUpval(L, 2);
-    Config::Lua::postToMain([mode, win]() {
-        auto result = CA::alterZOrder(mode, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::alterZOrder(mode, win));
 }
 
 static int dsp_setProp(lua_State* L) {
     std::string prop  = lua_tostring(L, lua_upvalueindex(1));
     std::string value = lua_tostring(L, lua_upvalueindex(2));
     auto        win   = Internal::windowFromUpval(L, 3);
-    Config::Lua::postToMain([prop, value, win]() {
-        auto result = CA::setProp(prop, value, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::setProp(prop, value, win));
 }
 
 static int dsp_moveIntoGroup(lua_State* L) {
     auto dir = sc<Math::eDirection>((int)lua_tonumber(L, lua_upvalueindex(1)));
     auto win = Internal::windowFromUpval(L, 2);
-    Config::Lua::postToMain([dir, win]() {
-        auto result = CA::moveIntoGroup(dir, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::moveIntoGroup(dir, win));
 }
 
 static int dsp_moveOutOfGroup(lua_State* L) {
     auto dir = sc<Math::eDirection>((int)lua_tonumber(L, lua_upvalueindex(1)));
     auto win = Internal::windowFromUpval(L, 2);
-    Config::Lua::postToMain([dir, win]() {
-        auto result = CA::moveOutOfGroup(dir, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::moveOutOfGroup(dir, win));
 }
 
 static int dsp_moveWindowOrGroup(lua_State* L) {
     auto dir = sc<Math::eDirection>((int)lua_tonumber(L, lua_upvalueindex(1)));
     auto win = Internal::windowFromUpval(L, 2);
-    Config::Lua::postToMain([dir, win]() {
-        auto result = CA::moveWindowOrGroup(dir, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::moveWindowOrGroup(dir, win));
 }
 
 static int dsp_moveIntoOrCreateGroup(lua_State* L) {
     auto dir = sc<Math::eDirection>((int)lua_tonumber(L, lua_upvalueindex(1)));
     auto win = Internal::windowFromUpval(L, 2);
-    Config::Lua::postToMain([dir, win]() {
-        auto result = CA::moveIntoOrCreateGroup(dir, win);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::moveIntoOrCreateGroup(dir, win));
 }
 
 static int dsp_denyFromGroup(lua_State* L) {
     auto action = sc<CA::eTogglableAction>((int)lua_tonumber(L, lua_upvalueindex(1)));
-    Config::Lua::postToMain([action]() {
-        auto result = CA::denyWindowFromGroup(action);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::denyWindowFromGroup(action));
 }
 
 static int dsp_mouseDrag(lua_State* L) {
-    Config::Lua::postToMain([]() {
-        auto result = CA::mouse("movewindow");
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::mouse("movewindow"));
 }
 
 static int dsp_mouseResize(lua_State* L) {
-    Config::Lua::postToMain([]() {
-        auto result = CA::mouse("resizewindow");
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::mouse("resizewindow"));
 }
 
 static int hlWindowClose(lua_State* L) {
@@ -1309,78 +1016,43 @@ static int hlWindowResize(lua_State* L) {
 
 static int dsp_moveFocus(lua_State* L) {
     auto dir = sc<Math::eDirection>((int)lua_tonumber(L, lua_upvalueindex(1)));
-    Config::Lua::postToMain([dir]() {
-        auto result = CA::moveFocus(dir);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::moveFocus(dir));
 }
 
 static int dsp_focusMonitor(lua_State* L) {
-    const auto monStr = lua_tostring(L, lua_upvalueindex(1));
-    Config::Lua::postToMain([monStr]() {
-        const auto PMONITOR = g_pCompositor->getMonitorFromString(monStr);
-        if (PMONITOR) {
-            auto result = CA::focusMonitor(PMONITOR);
-            if (!result)
-                Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-        }
-    });
-    return Internal::pushSuccessResult(L);
+    const auto monStr   = lua_tostring(L, lua_upvalueindex(1));
+    const auto PMONITOR = g_pCompositor->getMonitorFromString(monStr);
+    if (!PMONITOR)
+        return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::focusMonitor(PMONITOR));
 }
 
 static int dsp_focusWindowBySelector(lua_State* L) {
-    const auto regex = lua_tostring(L, lua_upvalueindex(1));
-    Config::Lua::postToMain([regex]() {
-        const auto PWINDOW = g_pCompositor->getWindowByRegex(regex);
-        if (PWINDOW) {
-            auto result = CA::focus(PWINDOW);
-            if (!result)
-                Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-        }
-    });
-    return Internal::pushSuccessResult(L);
+    const auto regex   = lua_tostring(L, lua_upvalueindex(1));
+    const auto PWINDOW = g_pCompositor->getWindowByRegex(regex);
+    if (!PWINDOW)
+        return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::focus(PWINDOW));
 }
 
 static int dsp_focusUrgentOrLast(lua_State* L) {
-    Config::Lua::postToMain([]() {
-        auto result = CA::focusUrgentOrLast();
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::focusUrgentOrLast());
 }
 
 static int dsp_focusCurrentOrLast(lua_State* L) {
-    Config::Lua::postToMain([]() {
-        auto result = CA::focusCurrentOrLast();
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::focusCurrentOrLast());
 }
 
 static int dsp_changeWorkspace(lua_State* L) {
     std::string ws = lua_tostring(L, lua_upvalueindex(1));
-    Config::Lua::postToMain([ws]() {
-        auto result = CA::changeWorkspace(ws);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::changeWorkspace(ws));
 }
 
 static int dsp_focusWorkspaceOnCurrentMonitor(lua_State* L) {
     auto ws = Internal::resolveWorkspaceStr(lua_tostring(L, lua_upvalueindex(1)));
     if (!ws)
         return Internal::dispatcherError(L, "Invalid workspace", ERR, C_INVARG);
-    Config::Lua::postToMain([ws]() {
-        auto result = CA::changeWorkspaceOnCurrentMonitor(ws);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    return Internal::checkResult(L, CA::changeWorkspaceOnCurrentMonitor(ws));
 }
 
 static int hlFocus(lua_State* L) {
@@ -1450,89 +1122,77 @@ static int hlNoop(lua_State* L) {
 }
 
 static int dsp_toggleSpecial(lua_State* L) {
-    std::string name = lua_isnil(L, lua_upvalueindex(1)) ? "" : lua_tostring(L, lua_upvalueindex(1));
-    Config::Lua::postToMain([name]() {
-        const auto& [workspaceID, workspaceName, isAutoID] = getWorkspaceIDNameFromString("special:" + name);
-        if (workspaceID == WORKSPACE_INVALID || !g_pCompositor->isWorkspaceSpecial(workspaceID))
-            return;
-        auto ws = g_pCompositor->getWorkspaceByID(workspaceID);
-        if (!ws) {
-            const auto PMONITOR = Desktop::focusState()->monitor();
-            if (PMONITOR)
-                ws = g_pCompositor->createNewWorkspace(workspaceID, PMONITOR->m_id, workspaceName);
-        }
-        if (ws) {
-            auto result = CA::toggleSpecial(ws);
-            if (!result)
-                Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-        }
-    });
+    std::string name                                   = lua_isnil(L, lua_upvalueindex(1)) ? "" : lua_tostring(L, lua_upvalueindex(1));
+    const auto& [workspaceID, workspaceName, isAutoID] = getWorkspaceIDNameFromString("special:" + name);
+
+    if (workspaceID == WORKSPACE_INVALID || !g_pCompositor->isWorkspaceSpecial(workspaceID))
+        return Internal::pushSuccessResult(L);
+
+    auto ws = g_pCompositor->getWorkspaceByID(workspaceID);
+    if (!ws) {
+        const auto PMONITOR = Desktop::focusState()->monitor();
+        if (PMONITOR)
+            ws = g_pCompositor->createNewWorkspace(workspaceID, PMONITOR->m_id, workspaceName);
+    }
+
+    if (ws)
+        return Internal::checkResult(L, CA::toggleSpecial(ws));
+
     return Internal::pushSuccessResult(L);
 }
 
 static int dsp_renameWorkspace(lua_State* L) {
     std::string id   = lua_tostring(L, lua_upvalueindex(1));
     std::string name = lua_isnil(L, lua_upvalueindex(2)) ? "" : lua_tostring(L, lua_upvalueindex(2));
-    Config::Lua::postToMain([id, name]() {
-        const auto PWS = g_pCompositor->getWorkspaceByString(id);
-        if (PWS) {
-            auto result = CA::renameWorkspace(PWS, name);
-            if (!result)
-                Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-        }
-    });
-    return Internal::pushSuccessResult(L);
+    const auto  PWS  = g_pCompositor->getWorkspaceByString(id);
+
+    if (!PWS)
+        return Internal::pushSuccessResult(L);
+
+    return Internal::checkResult(L, CA::renameWorkspace(PWS, name));
 }
 
 static int dsp_moveWorkspaceToMonitor(lua_State* L) {
     std::string wsStr  = lua_tostring(L, lua_upvalueindex(1));
     std::string monStr = lua_tostring(L, lua_upvalueindex(2));
-    Config::Lua::postToMain([wsStr, monStr]() {
-        const auto WORKSPACEID = getWorkspaceIDNameFromString(wsStr).id;
-        if (WORKSPACEID == WORKSPACE_INVALID)
-            return;
-        const auto PWORKSPACE = g_pCompositor->getWorkspaceByID(WORKSPACEID);
-        if (!PWORKSPACE)
-            return;
-        const auto PMONITOR = g_pCompositor->getMonitorFromString(monStr);
-        if (!PMONITOR)
-            return;
-        auto result = CA::moveToMonitor(PWORKSPACE, PMONITOR);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+
+    const auto  WORKSPACEID = getWorkspaceIDNameFromString(wsStr).id;
+    if (WORKSPACEID == WORKSPACE_INVALID)
+        return Internal::pushSuccessResult(L);
+
+    const auto PWORKSPACE = g_pCompositor->getWorkspaceByID(WORKSPACEID);
+    const auto PMONITOR   = g_pCompositor->getMonitorFromString(monStr);
+
+    if (!PWORKSPACE || !PMONITOR)
+        return Internal::pushSuccessResult(L);
+
+    return Internal::checkResult(L, CA::moveToMonitor(PWORKSPACE, PMONITOR));
 }
 
 static int dsp_moveCurrentWorkspaceToMonitor(lua_State* L) {
-    std::string monStr = lua_tostring(L, lua_upvalueindex(1));
-    Config::Lua::postToMain([monStr]() {
-        const auto PMONITOR = g_pCompositor->getMonitorFromString(monStr);
-        if (!PMONITOR)
-            return;
-        const auto PCURRENTWORKSPACE = Desktop::focusState()->monitor()->m_activeWorkspace;
-        if (!PCURRENTWORKSPACE)
-            return;
-        auto result = CA::moveToMonitor(PCURRENTWORKSPACE, PMONITOR);
-        if (!result)
-            Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-    });
-    return Internal::pushSuccessResult(L);
+    std::string monStr   = lua_tostring(L, lua_upvalueindex(1));
+    const auto  PMONITOR = g_pCompositor->getMonitorFromString(monStr);
+
+    if (!PMONITOR)
+        return Internal::pushSuccessResult(L);
+
+    const auto PCURRENTWORKSPACE = Desktop::focusState()->monitor()->m_activeWorkspace;
+    if (!PCURRENTWORKSPACE)
+        return Internal::pushSuccessResult(L);
+
+    return Internal::checkResult(L, CA::moveToMonitor(PCURRENTWORKSPACE, PMONITOR));
 }
 
 static int dsp_swapActiveWorkspaces(lua_State* L) {
     std::string mon1Str = lua_tostring(L, lua_upvalueindex(1));
     std::string mon2Str = lua_tostring(L, lua_upvalueindex(2));
-    Config::Lua::postToMain([mon1Str, mon2Str]() {
-        const auto PMON1 = g_pCompositor->getMonitorFromString(mon1Str);
-        const auto PMON2 = g_pCompositor->getMonitorFromString(mon2Str);
-        if (PMON1 && PMON2) {
-            auto result = CA::swapActiveWorkspaces(PMON1, PMON2);
-            if (!result)
-                Log::logger->log(Internal::logLevelForActionError(result.error().level), "Lua dispatcher: {}", result.error().message);
-        }
-    });
-    return Internal::pushSuccessResult(L);
+    const auto  PMON1   = g_pCompositor->getMonitorFromString(mon1Str);
+    const auto  PMON2   = g_pCompositor->getMonitorFromString(mon2Str);
+
+    if (!PMON1 || !PMON2)
+        return Internal::pushSuccessResult(L);
+
+    return Internal::checkResult(L, CA::swapActiveWorkspaces(PMON1, PMON2));
 }
 
 static int hlWorkspaceToggleSpecial(lua_State* L) {
