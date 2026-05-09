@@ -143,7 +143,7 @@ static void copyUpvalues(lua_State* L, int oldFuncIdx, int newFuncIdx, std::stri
         }
     }
     if (copied > 0)
-        Log::logger->log(Log::DEBUG, "[lua] copyUpvalues({}): copied {} upvalue(s) from old closure", context.empty() ? "?" : context, copied);
+        Log::logger->log(Log::LUA, "copyUpvalues({}): copied {} upvalue(s) from old closure", context.empty() ? "?" : context, copied);
 }
 
 static int hlBind(lua_State* L) {
@@ -506,7 +506,7 @@ static int hlTimer(lua_State* L) {
             int        status = lua_resume(co, L, 0, &nres);
 
             if (status != LUA_OK && status != LUA_YIELD) {
-                Log::logger->log(Log::ERR, "[Lua] Timer error: {}", lua_tostring(co, -1));
+                Log::logger->log(Log::LUA, "Timer error: {}", lua_tostring(co, -1));
             }
 
             if (status != LUA_YIELD) {

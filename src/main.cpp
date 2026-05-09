@@ -34,8 +34,9 @@ static void help() {
     --watchdog-fd FD             - Used by start-hyprland
     --safe-mode                  - Starts Hyprland in safe mode
     --systeminfo                 - Prints system infos
+    --log-level LEVEL  -l LEVEL  - Set the log level (trace, debug, info, warn, err, crit, lua)
     --i-am-really-stupid         - Omits root user privileges check (why would you do that?)
-    --verify-config              - Do not run Hyprland, only print if the config has any errors
+    --verify-config              - Do not run Hyprland, only check if the config has any errors
     --version           -v       - Print this binary's version
     --version-json               - Print this binary's version as json)#");
 }
@@ -70,6 +71,7 @@ int main(int argc, char** argv) {
     // parse some args
     std::string configPath;
     std::string socketName;
+    std::string logLevel;
     int         socketFd   = -1;
     bool        ignoreSudo = false, verifyConfig = false, safeMode = false;
     int         watchdogFd = -1;
@@ -142,6 +144,13 @@ int main(int argc, char** argv) {
                 it++;
 
                 continue;
+            } else if (value == "-l" || value == "--log-level") {
+                if (std::next(it) == args.end()) {
+                    help();
+                    return 1;
+                }
+                logLevel = *std::next(it);
+                it++;
             } else if (value == "-h" || value == "--help") {
                 help();
 
@@ -182,6 +191,26 @@ int main(int argc, char** argv) {
 
                 return 1;
             }
+        }
+    }
+
+    if (!logLevel.empty()) {
+        if (logLevel == "trace")
+            Log::logger->hu().setLogLevel(Hyprutils::CLI::LOG_TRACE);
+        else if (logLevel == "debug" || logLevel == "info")
+            Log::logger->hu().setLogLevel(Hyprutils::CLI::LOG_DEBUG);
+        else if (logLevel == "warn")
+            Log::logger->hu().setLogLevel(Hyprutils::CLI::LOG_WARN);
+        else if (logLevel == "err")
+            Log::logger->hu().setLogLevel(Hyprutils::CLI::LOG_ERR);
+        else if (logLevel == "crit")
+            Log::logger->hu().setLogLevel(Hyprutils::CLI::LOG_CRIT);
+        else if (logLevel == "lua")
+            Log::logger->hu().setLogLevel(Log::LUA);
+        else {
+            std::println(stderr, "[ ERROR ] Unknown log level '{}'! Valid values: trace, debug, info, warn, err, crit, lua", logLevel);
+            help();
+            return 1;
         }
     }
 

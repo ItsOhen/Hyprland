@@ -25,7 +25,10 @@ void CLogger::log(Hyprutils::CLI::eLogLevel level, const std::string_view& str) 
     if (SRollingLogFollow::get().isRunning())
         SRollingLogFollow::get().addLog(str);
 
-    m_logger.log(level, str);
+    if (level == LUA)
+        m_logger.log(level, std::format("\r\033[1;33mLUA \033[0m]: {}", str));
+    else
+        m_logger.log(level, str);
 }
 
 void CLogger::initIS(const std::string_view& IS) {
