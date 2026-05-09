@@ -354,13 +354,13 @@ void CConfigManager::init() {
 
     Config::watcher()->setOnChange([this](const CConfigWatcher::SConfigWatchEvent& e) {
         if (e.file == m_mainConfigPath) {
-            Log::logger->log(Log::INFO, "[lua] main config file {} modified, full reload (gen {})", e.file, m_reloadGeneration + 1);
+            Log::logger->log(Log::LUA, "main config file {} modified, full reload (gen {})", e.file, m_reloadGeneration + 1);
             reload();
         } else if (m_moduleNameByPath.contains(e.file)) {
-            Log::logger->log(Log::INFO, "[lua] module {} ({}) modified, module reload", m_moduleNameByPath[e.file], e.file);
+            Log::logger->log(Log::LUA, "module {} ({}) modified, module reload", m_moduleNameByPath[e.file], e.file);
             reloadModule(e.file);
         } else {
-            Log::logger->log(Log::WARN, "[lua] file {} modified but not recognized, full reload", e.file);
+            Log::logger->log(Log::LUA, "file {} modified but not recognized, full reload", e.file);
             reload();
         }
     });
@@ -436,7 +436,7 @@ void CConfigManager::reload() {
     // phase 2: syntax is valid, execute with generation-based sweep.
 
     m_reloadGeneration++;
-    Log::logger->log(Log::DEBUG, "[lua] reload gen {}: starting, m_lua kept alive", m_reloadGeneration);
+    Log::logger->log(Log::LUA, "reload gen {}: starting, m_lua kept alive", m_reloadGeneration);
 
     {
         size_t eventSubs = m_eventHandler ? m_eventHandler->subscriptionCount() : 0;
@@ -447,8 +447,8 @@ void CConfigManager::reload() {
                     luaBinds++;
             }
         }
-        Log::logger->log(Log::DEBUG,
-                         "[lua] state before reload gen {}: timers={} layouts={} win_rules={} lay_rules={} devices={} plugins={} refs={} events={} keybinds={} gestures={}",
+        Log::logger->log(Log::LUA,
+                         "state before reload gen {}: timers={} layouts={} win_rules={} lay_rules={} devices={} plugins={} refs={} events={} keybinds={} gestures={}",
                          m_reloadGeneration, m_luaTimers.size(), m_luaLayoutProviders.size(), m_luaWindowRules.size(), m_luaLayerRules.size(), m_deviceConfigs.size(),
                          m_registeredPlugins.size(), m_heldLuaRefs.size(), eventSubs, luaBinds, g_pTrackpadGestures->gestureCount());
     }
@@ -499,19 +499,19 @@ void CConfigManager::reload() {
 void CConfigManager::reloadModule(const std::string& filePath) {
     const auto it = m_moduleNameByPath.find(filePath);
     if (it == m_moduleNameByPath.end()) {
-        Log::logger->log(Log::WARN, "[lua] file {} modified, but it's not a tracked module. Falling back to full reload.", filePath);
+        Log::logger->log(Log::LUA, "file {} modified, but it's not a tracked module. Falling back to full reload.", filePath);
         reload();
         return;
     }
 
     if (!m_lua) {
-        Log::logger->log(Log::WARN, "[lua] cannot reload module, lua state is null. Falling back to full reload.");
+        Log::logger->log(Log::LUA, "cannot reload module, lua state is null. Falling back to full reload.");
         reload();
         return;
     }
 
     const auto& moduleName = it->second;
-    Log::logger->log(Log::DEBUG, "[lua] module {} ({}) modified, reloading module (gen {})", moduleName, filePath, m_reloadGeneration + 1);
+    Log::logger->log(Log::LUA, "module {} ({}) modified, reloading module (gen {})", moduleName, filePath, m_reloadGeneration + 1);
 
     {
         size_t eventSubs = m_eventHandler ? m_eventHandler->subscriptionCount() : 0;
@@ -522,8 +522,8 @@ void CConfigManager::reloadModule(const std::string& filePath) {
                     luaBinds++;
             }
         }
-        Log::logger->log(Log::DEBUG,
-                         "[lua] module state before gen {}: timers={} layouts={} win_rules={} lay_rules={} devices={} plugins={} refs={} events={} keybinds={} gestures={}",
+        Log::logger->log(Log::LUA,
+                         "module state before gen {}: timers={} layouts={} win_rules={} lay_rules={} devices={} plugins={} refs={} events={} keybinds={} gestures={}",
                          m_reloadGeneration, m_luaTimers.size(), m_luaLayoutProviders.size(), m_luaWindowRules.size(), m_luaLayerRules.size(), m_deviceConfigs.size(),
                          m_registeredPlugins.size(), m_heldLuaRefs.size(), eventSubs, luaBinds, g_pTrackpadGestures->gestureCount());
     }
@@ -567,8 +567,8 @@ void CConfigManager::reloadModule(const std::string& filePath) {
                     luaBinds++;
             }
         }
-        Log::logger->log(Log::DEBUG,
-                         "[lua] module state after gen {}: timers={} layouts={} win_rules={} lay_rules={} devices={} plugins={} refs={} events={} keybinds={} gestures={}",
+        Log::logger->log(Log::LUA,
+                         "module state after gen {}: timers={} layouts={} win_rules={} lay_rules={} devices={} plugins={} refs={} events={} keybinds={} gestures={}",
                          m_reloadGeneration, m_luaTimers.size(), m_luaLayoutProviders.size(), m_luaWindowRules.size(), m_luaLayerRules.size(), m_deviceConfigs.size(),
                          m_registeredPlugins.size(), m_heldLuaRefs.size(), eventSubs, luaBinds, g_pTrackpadGestures->gestureCount());
     }
@@ -583,7 +583,7 @@ void CConfigManager::reloadModule(const std::string& filePath) {
 void CConfigManager::sweepStaleRegistrations() {
     const auto currentGen = m_reloadGeneration;
     size_t     totalStale = 0;
-    Log::logger->log(Log::DEBUG, "[lua] sweep gen {}: starting", currentGen);
+    Log::logger->log(Log::LUA, "sweep gen {}: starting", currentGen);
 
     auto isStale = [currentGen](uint64_t gen) { return gen != 0 && gen != currentGen; };
 
@@ -596,7 +596,7 @@ void CConfigManager::sweepStaleRegistrations() {
         std::erase_if(vec, [&](const auto& item) { return isStale(getGen(item)); });
         size_t swept = before - vec.size();
         if (swept > 0)
-            Log::logger->log(Log::DEBUG, "[lua] sweep gen {}: removed {} stale {} ({} remain)", currentGen, swept, label, vec.size());
+            Log::logger->log(Log::LUA, "sweep gen {}: removed {} stale {} ({} remain)", currentGen, swept, label, vec.size());
         totalStale += swept;
     };
 
@@ -611,7 +611,7 @@ void CConfigManager::sweepStaleRegistrations() {
             genMap.erase(name);
         }
         if (!stale.empty())
-            Log::logger->log(Log::DEBUG, "[lua] sweep gen {}: removed {} stale {} ({} remain)", currentGen, stale.size(), label, genMap.size());
+            Log::logger->log(Log::LUA, "sweep gen {}: removed {} stale {} ({} remain)", currentGen, stale.size(), label, genMap.size());
         totalStale += stale.size();
     };
 
@@ -631,7 +631,7 @@ void CConfigManager::sweepStaleRegistrations() {
         std::erase_if(m_luaTimers, [&](const auto& t) { return t.id == 0 && isStale(t.generation); });
         size_t swept = before - m_luaTimers.size();
         if (swept > 0)
-            Log::logger->log(Log::DEBUG, "[lua] sweep gen {}: removed {} stale timers ({} remain)", currentGen, swept, m_luaTimers.size());
+            Log::logger->log(Log::LUA, "sweep gen {}: removed {} stale timers ({} remain)", currentGen, swept, m_luaTimers.size());
         totalStale += swept;
     }
 
@@ -696,7 +696,7 @@ void CConfigManager::sweepStaleRegistrations() {
         }
         size_t sweptRefs = beforeRefs - m_heldLuaRefs.size();
         if (sweptRefs > 0)
-            Log::logger->log(Log::DEBUG, "[lua] sweep gen {}: removed {} stale held Lua refs ({} remain)", currentGen, sweptRefs, m_heldLuaRefs.size());
+            Log::logger->log(Log::LUA, "sweep gen {}: removed {} stale held Lua refs ({} remain)", currentGen, sweptRefs, m_heldLuaRefs.size());
         totalStale += sweptRefs;
     }
 
@@ -704,7 +704,7 @@ void CConfigManager::sweepStaleRegistrations() {
     if (m_eventHandler) {
         size_t eventCount = m_eventHandler->sweepEvents(currentGen);
         if (eventCount > 0)
-            Log::logger->log(Log::DEBUG, "[lua] sweep gen {}: removed {} stale event subscriptions", currentGen, eventCount);
+            Log::logger->log(Log::LUA, "sweep gen {}: removed {} stale event subscriptions", currentGen, eventCount);
         totalStale += eventCount;
     }
 
@@ -727,7 +727,7 @@ void CConfigManager::sweepStaleRegistrations() {
             std::erase(g_pKeybindManager->m_keybinds, kb);
         }
         if (!keybindsToRemove.empty())
-            Log::logger->log(Log::DEBUG, "[lua] sweep gen {}: removed {} stale __lua keybinds", currentGen, keybindsToRemove.size());
+            Log::logger->log(Log::LUA, "sweep gen {}: removed {} stale __lua keybinds", currentGen, keybindsToRemove.size());
         totalStale += keybindsToRemove.size();
     }
 
@@ -743,11 +743,11 @@ void CConfigManager::sweepStaleRegistrations() {
         }
         size_t swept = before - m_luaGestures.size();
         if (swept > 0)
-            Log::logger->log(Log::DEBUG, "[lua] sweep gen {}: removed {} stale gesture(s) ({} remain)", currentGen, swept, m_luaGestures.size());
+            Log::logger->log(Log::LUA, "sweep gen {}: removed {} stale gesture(s) ({} remain)", currentGen, swept, m_luaGestures.size());
         totalStale += swept;
     }
 
-    Log::logger->log(Log::DEBUG, "[lua] sweep gen {}: done, removed {} stale registrations total", currentGen, totalStale);
+    Log::logger->log(Log::LUA, "sweep gen {}: done, removed {} stale registrations total", currentGen, totalStale);
 }
 
 void CConfigManager::postConfigReload() {
@@ -1352,6 +1352,6 @@ void CConfigManager::reregisterLuaPluginFns() {
     for (auto& fn : m_pluginLuaFunctions) {
         auto ret = registerPluginLuaFunctionInState(fn.id, fn.namespace_, fn.name);
         if (!ret)
-            Log::logger->log(Log::ERR, "[lua] failed to reregister plugin fn for {}.{}: {}", fn.namespace_, fn.name, ret.error());
+            Log::logger->log(Log::LUA, "failed to reregister plugin fn for {}.{}: {}", fn.namespace_, fn.name, ret.error());
     }
 }

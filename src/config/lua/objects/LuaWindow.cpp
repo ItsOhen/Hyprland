@@ -60,7 +60,7 @@ static int windowIndex(lua_State* L) {
     auto*      ref = sc<PHLWINDOWREF*>(luaL_checkudata(L, 1, MT));
     const auto w   = ref->lock();
     if (!w) {
-        Log::logger->log(Log::DEBUG, "[lua] Tried to access an expired object");
+        Log::logger->log(Log::LUA, "Tried to access an expired object");
         lua_pushnil(L);
         return 1;
     }

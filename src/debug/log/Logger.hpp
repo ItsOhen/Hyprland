@@ -58,4 +58,5 @@ namespace Log {
     inline constexpr const Hyprutils::CLI::eLogLevel CRIT  = Hyprutils::CLI::LOG_CRIT;
     inline constexpr const Hyprutils::CLI::eLogLevel INFO  = Hyprutils::CLI::LOG_DEBUG;
     inline constexpr const Hyprutils::CLI::eLogLevel TRACE = Hyprutils::CLI::LOG_TRACE;
+    inline constexpr const Hyprutils::CLI::eLogLevel LUA   = static_cast<Hyprutils::CLI::eLogLevel>(5);
 };

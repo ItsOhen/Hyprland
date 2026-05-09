@@ -26,7 +26,7 @@ void CLuaEventHandler::dispatch(const std::string& name, int nargs, const std::f
         return;
 
     if (m_dispatchDepth >= MAX_DISPATCH_DEPTH) {
-        Log::logger->log(Log::WARN, "[LuaEvents] max dispatch depth ({}) reached while handling '{}'", MAX_DISPATCH_DEPTH, name);
+        Log::logger->log(Log::LUA, "max dispatch depth ({}) reached while handling '{}'", MAX_DISPATCH_DEPTH, name);
         return;
     }
 
@@ -39,7 +39,7 @@ void CLuaEventHandler::dispatch(const std::string& name, int nargs, const std::f
 
         if (m_activeHandles.contains(handle)) {
             if (m_reentrancyWarnedHandles.emplace(handle).second)
-                Log::logger->log(Log::WARN, "[LuaEvents] suppressed recursive hl.on(\"{}\") callback invocation", name);
+                Log::logger->log(Log::LUA, "suppressed recursive hl.on(\"{}\") callback invocation", name);
             continue;
         }
 
@@ -261,7 +261,7 @@ void CLuaEventHandler::sweepEvent(const std::string& eventName, int newRef, uint
     lua_pop(m_lua, 2);
 
     if (copied > 0)
-        Log::logger->log(Log::DEBUG, "[lua] sweepEvent(\"{}\"): copied {} upvalue(s) from old closure", eventName, copied);
+        Log::logger->log(Log::LUA, "sweepEvent(\"{}\"): copied {} upvalue(s) from old closure", eventName, copied);
 
     unregisterEvent(oldHandle);
 }
