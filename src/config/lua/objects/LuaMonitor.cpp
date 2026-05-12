@@ -198,6 +198,19 @@ void Objects::CLuaMonitor::setup(lua_State* L) {
         return 1;
     });
 
+    Objects::CLuaMonitor::s_schema->addProperty("reserved", [](lua_State* L, PHLMONITOR mon) {
+        lua_newtable(L);
+        lua_pushinteger(L, sc<int>(mon->m_reservedArea.top()));
+        lua_setfield(L, -2, "top");
+        lua_pushinteger(L, sc<int>(mon->m_reservedArea.right()));
+        lua_setfield(L, -2, "right");
+        lua_pushinteger(L, sc<int>(mon->m_reservedArea.bottom()));
+        lua_setfield(L, -2, "bottom");
+        lua_pushinteger(L, sc<int>(mon->m_reservedArea.left()));
+        lua_setfield(L, -2, "left");
+        return 1;
+    });
+
     registerMetatable(L, MT, {
         {"__index",    monitorIndex},
         {"__gc",       gcRef<PHLMONITORREF>},
