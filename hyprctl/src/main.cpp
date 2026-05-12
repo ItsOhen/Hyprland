@@ -396,6 +396,17 @@ int main(int argc, char** argv) {
             } else if ((ARGS[i] == "-f" || ARGS[i] == "--follow") && !fullArgs.contains("f")) {
                 fullArgs += "f";
                 needRoll = true;
+            } else if (ARGS[i] == "-l" && !fullArgs.contains("l")) {
+                fullArgs += "l";
+                if (i + 1 < ARGS.size()) {
+                    std::string upper;
+                    for (auto& c : ARGS[i + 1])
+                        upper += toupper(c);
+                    if (upper == "TRACE" || upper == "DEBUG" || upper == "WARN" || upper == "ERR" || upper == "CRIT" || upper == "LUA") {
+                        fullArgs += upper.substr(0, 1);
+                        ++i;
+                    }
+                }
             } else if (ARGS[i] == "--batch") {
                 fullRequest = "--batch ";
             } else if (ARGS[i] == "--instance" || ARGS[i] == "-i") {
