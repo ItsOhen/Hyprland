@@ -15,6 +15,7 @@ CLogger::CLogger() {
 void CLogger::log(Hyprutils::CLI::eLogLevel level, const std::string_view& str) {
 
     static bool TRACE = Env::isTrace();
+    std::string s, levelCode;
 
     if (!m_logsEnabled)
         return;
@@ -22,19 +23,43 @@ void CLogger::log(Hyprutils::CLI::eLogLevel level, const std::string_view& str) 
     if (level == Hyprutils::CLI::LOG_TRACE && !TRACE)
         return;
 
-    // dont care about string alloc atm. maybe later
-    if (level == LUA) {
-        auto s = std::format("\r\033[1;33mLUA \033[0m]: {}", str);
-        if (SRollingLogFollow::get().isRunning())
-            SRollingLogFollow::get().addLog(s);
-        m_logger.log(level, s);
-        return;
+    switch (level) {
+        case LUA:
+            s         = std::format("\r\033[1;33mLUA \033[0m]: {}", str);
+            levelCode = "LUA";
+            break;
+        case Hyprutils::CLI::LOG_TRACE:
+            s         = std::format("\r\033[1;34mTRACE \033[0m]: {}", str);
+            levelCode = "TRACE";
+            break;
+        case Hyprutils::CLI::LOG_DEBUG:
+            s         = std::format("\r\033[1;32mDEBUG \033[0m]: {}", str);
+            levelCode = "DEBUG";
+            break;
+        case Hyprutils::CLI::LOG_WARN:
+            s         = std::format("\r\033[1;33mWARN \033[0m]: {}", str);
+            levelCode = "WARN";
+            break;
+        case Hyprutils::CLI::LOG_ERR:
+            s         = std::format("\r\033[1;31mERR \033[0m]: {}", str);
+            levelCode = "ERR";
+            break;
+        case Hyprutils::CLI::LOG_CRIT:
+            s         = std::format("\r\033[1;35mCRIT \033[0m]: {}", str);
+            levelCode = "CRIT";
+            break;
+        default:
+            break;
     }
 
-    if (SRollingLogFollow::get().isRunning())
-        SRollingLogFollow::get().addLog(str);
+    if (SRollingLogFollow::get().isRunning()) {
+        SRollingLogFollow::get().addLog(str, s, levelCode);
+    }
 
-    m_logger.log(level, str);
+    if (!s.empty())
+        m_logger.log(level, s);
+    else
+        m_logger.log(level, str);
 }
 
 void CLogger::initIS(const std::string_view& IS) {

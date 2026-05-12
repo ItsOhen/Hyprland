@@ -2022,8 +2022,10 @@ void CHyprCtl::unregisterCommand(const SP<SHyprCtlCommand>& cmd) {
 std::string CHyprCtl::getReply(std::string request) {
     auto format                          = eHyprCtlOutputFormat::FORMAT_NORMAL;
     bool reloadAll                       = false;
-    m_currentRequestParams.all           = false;
-    m_currentRequestParams.sysInfoConfig = false;
+    m_currentRequestParams.all              = false;
+    m_currentRequestParams.sysInfoConfig    = false;
+    m_currentRequestParams.rollingLogLevel  = false;
+    m_currentRequestParams.rollingLogFilter = "";
 
     // process flags for non-batch requests
     if (!request.starts_with("[[BATCH]]") && request.contains("/")) {
@@ -2050,6 +2052,20 @@ std::string CHyprCtl::getReply(std::string request) {
                 m_currentRequestParams.all = true;
             else if (c == 'c')
                 m_currentRequestParams.sysInfoConfig = true;
+            else if (c == 'l')
+                m_currentRequestParams.rollingLogLevel = true;
+            else if (c == 'L' && m_currentRequestParams.rollingLogLevel && m_currentRequestParams.rollingLogFilter.empty())
+                m_currentRequestParams.rollingLogFilter = "LUA";
+            else if (c == 'T' && m_currentRequestParams.rollingLogLevel && m_currentRequestParams.rollingLogFilter.empty())
+                m_currentRequestParams.rollingLogFilter = "TRACE";
+            else if (c == 'D' && m_currentRequestParams.rollingLogLevel && m_currentRequestParams.rollingLogFilter.empty())
+                m_currentRequestParams.rollingLogFilter = "DEBUG";
+            else if (c == 'W' && m_currentRequestParams.rollingLogLevel && m_currentRequestParams.rollingLogFilter.empty())
+                m_currentRequestParams.rollingLogFilter = "WARN";
+            else if (c == 'E' && m_currentRequestParams.rollingLogLevel && m_currentRequestParams.rollingLogFilter.empty())
+                m_currentRequestParams.rollingLogFilter = "ERR";
+            else if (c == 'C' && m_currentRequestParams.rollingLogLevel && m_currentRequestParams.rollingLogFilter.empty())
+                m_currentRequestParams.rollingLogFilter = "CRIT";
         }
 
         if (sepIndex < request.size())
@@ -2266,7 +2282,7 @@ static int hyprCtlFDTick(int fd, uint32_t mask, void* data) {
 
         if (isFollowUpRollingLogRequest(request)) {
             Log::logger->log(Log::DEBUG, "Followup rollinglog request received. Starting thread to write to socket.");
-            Log::SRollingLogFollow::get().startFor(ACCEPTEDCONNECTION);
+            Log::SRollingLogFollow::get().startFor(ACCEPTEDCONNECTION, request.contains("l"), g_pHyprCtl->m_currentRequestParams.rollingLogFilter);
             runWritingDebugLogThread(ACCEPTEDCONNECTION);
             Log::logger->log(Log::DEBUG, Log::SRollingLogFollow::get().debugInfo());
         } else

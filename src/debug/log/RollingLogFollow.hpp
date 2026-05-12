@@ -4,10 +4,13 @@
 #include <unordered_map>
 #include <format>
 #include <vector>
+#include <string>
 
 namespace Log {
     struct SRollingLogFollow {
         std::unordered_map<int, std::string> m_socketToRollingLogFollowQueue;
+        std::unordered_map<int, bool>        m_socketShowLevel;
+        std::unordered_map<int, std::string> m_socketLevelFilter;
         std::shared_mutex                    m_mutex;
         bool                                 m_running                  = false;
         static constexpr size_t              ROLLING_LOG_FOLLOW_TOO_BIG = 8192;
@@ -32,13 +35,16 @@ namespace Log {
             return ret;
         };
 
-        void addLog(const std::string_view& log) {
+        void addLog(const std::string_view& log, const std::string& s, const std::string& levelCode) {
             std::unique_lock<std::shared_mutex> w(m_mutex);
             m_running = true;
-            std::vector<int> to_erase;
             for (const auto& p : m_socketToRollingLogFollowQueue) {
-                m_socketToRollingLogFollowQueue[p.first] += log;
-                m_socketToRollingLogFollowQueue[p.first] += "\n";
+                if (!m_socketLevelFilter[p.first].empty() && m_socketLevelFilter[p.first] != levelCode)
+                    continue;
+                if (m_socketShowLevel[p.first] && !s.empty())
+                    m_socketToRollingLogFollowQueue[p.first] += std::format("{}\n", s);
+                else
+                    m_socketToRollingLogFollowQueue[p.first] += std::format("{}\n", log);
             }
         }
 
@@ -50,13 +56,17 @@ namespace Log {
         void stopFor(int socket) {
             std::unique_lock<std::shared_mutex> w(m_mutex);
             m_socketToRollingLogFollowQueue.erase(socket);
+            m_socketShowLevel.erase(socket);
+            m_socketLevelFilter.erase(socket);
             if (m_socketToRollingLogFollowQueue.empty())
                 m_running = false;
         }
 
-        void startFor(int socket) {
+        void startFor(int socket, bool showLevel = false, const std::string& levelFilter = "") {
             std::unique_lock<std::shared_mutex> w(m_mutex);
             m_socketToRollingLogFollowQueue[socket] = std::format("[LOG] Following log to socket: {} started\n", socket);
+            m_socketShowLevel[socket]               = showLevel;
+            m_socketLevelFilter[socket]             = levelFilter;
             m_running                               = true;
         }
 
