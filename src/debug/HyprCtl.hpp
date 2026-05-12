@@ -28,6 +28,8 @@ class CHyprCtl {
         bool                      all              = false;
         bool                      sysInfoConfig    = false;
         bool                      isDynamicKeyword = false;
+        bool                      rollingLogLevel  = false;
+        std::string               rollingLogFilter = "";
         pid_t                     pid              = 0;
         SP<CPromise<std::string>> pendingPromise;
     } m_currentRequestParams;
