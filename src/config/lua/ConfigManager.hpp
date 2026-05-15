@@ -127,6 +127,7 @@ namespace Config::Lua {
         };
 
         std::string currentLuaSourcePath() const;
+        void        setCurrentLuaSourcePath(const std::string& path);
 
         std::map<int, SRegistrationMeta> m_luaKeybindRefGen;
 
