@@ -545,7 +545,7 @@ static int hlPluginLoad(lua_State* L) {
         return Internal::configError(L, "hl.plugin.load: path must not be empty");
 
     mgr->m_registeredPlugins.emplace_back(path);
-    mgr->m_registeredPluginGen[path] = !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0;
+    mgr->m_registeredPluginGen[path] = {.generation = !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0, .sourcePath = CConfigManager::currentLuaSourcePath(L)};
     return 0;
 }
 
@@ -752,7 +752,7 @@ static int hlGesture(lua_State* L) {
         if (lua_isfunction(L, -1)) {
             lua_pushvalue(L, -1);
             functionRef = luaL_ref(L, LUA_REGISTRYINDEX);
-            Lua::mgr()->registerLuaRef(functionRef);
+            Lua::mgr()->registerLuaRef(functionRef, CConfigManager::currentLuaSourcePath(L));
         }
 
         lua_pop(L, 1);
@@ -857,7 +857,7 @@ static int hlGesture(lua_State* L) {
     }
 
     if (result) {
-        mgr->m_luaGestures.emplace_back(CConfigManager::SLuaGestureInfo{fingerCount, modMask, direction, deltaScale, disableInhibit, gen});
+        mgr->m_luaGestures.emplace_back(CConfigManager::SLuaGestureInfo{fingerCount, modMask, direction, deltaScale, disableInhibit, gen, CConfigManager::currentLuaSourcePath(L)});
         return 0;
     }
 
@@ -986,7 +986,7 @@ static int hlDevice(lua_State* L) {
             self->addError(std::format("{}: hl.device: field '{}': {}", sourceInfo, key, err.message));
         else {
             self->m_deviceConfigs[devName].values.insert_or_assign(key, std::move(val));
-            self->m_deviceConfigGen[devName] = !self->isDynamicParse() ? self->m_reloadGeneration : 0;
+            self->m_deviceConfigGen[devName] = {.generation = !self->isDynamicParse() ? self->m_reloadGeneration : 0, .sourcePath = CConfigManager::currentLuaSourcePath(L)};
         }
 
         lua_pop(L, 1);
@@ -1086,12 +1086,12 @@ static int hlWindowRule(lua_State* L) {
     SP<Desktop::Rule::CWindowRule> rule;
     if (!name.empty() && self->m_luaWindowRules.contains(name)) {
         rule                           = self->m_luaWindowRules[name];
-        self->m_luaWindowRuleGen[name] = !self->isDynamicParse() ? self->m_reloadGeneration : 0;
+        self->m_luaWindowRuleGen[name] = {.generation = !self->isDynamicParse() ? self->m_reloadGeneration : 0, .sourcePath = CConfigManager::currentLuaSourcePath(L)};
     } else {
         rule = makeShared<Desktop::Rule::CWindowRule>(name);
         if (!name.empty()) {
             self->m_luaWindowRules[name]   = rule;
-            self->m_luaWindowRuleGen[name] = !self->isDynamicParse() ? self->m_reloadGeneration : 0;
+            self->m_luaWindowRuleGen[name] = {.generation = !self->isDynamicParse() ? self->m_reloadGeneration : 0, .sourcePath = CConfigManager::currentLuaSourcePath(L)};
         }
         Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>(rule));
     }
@@ -1199,12 +1199,12 @@ static int hlLayerRule(lua_State* L) {
     SP<Desktop::Rule::CLayerRule> rule;
     if (!name.empty() && self->m_luaLayerRules.contains(name)) {
         rule                          = self->m_luaLayerRules[name];
-        self->m_luaLayerRuleGen[name] = !self->isDynamicParse() ? self->m_reloadGeneration : 0;
+        self->m_luaLayerRuleGen[name] = {.generation = !self->isDynamicParse() ? self->m_reloadGeneration : 0, .sourcePath = CConfigManager::currentLuaSourcePath(L)};
     } else {
         rule = makeShared<Desktop::Rule::CLayerRule>(name);
         if (!name.empty()) {
             self->m_luaLayerRules[name]   = rule;
-            self->m_luaLayerRuleGen[name] = !self->isDynamicParse() ? self->m_reloadGeneration : 0;
+            self->m_luaLayerRuleGen[name] = {.generation = !self->isDynamicParse() ? self->m_reloadGeneration : 0, .sourcePath = CConfigManager::currentLuaSourcePath(L)};
         }
         Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>(rule));
     }

@@ -28,6 +28,7 @@ namespace Config::Lua::Layouts {
         bool            active     = true;
         bool            didError   = false;
         uint64_t        generation = 0;
+        std::string     sourcePath = "";
     };
 
     class CLuaTiledAlgorithm : public Layout::ITiledAlgorithm {
