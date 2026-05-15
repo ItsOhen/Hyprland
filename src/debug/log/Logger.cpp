@@ -48,8 +48,7 @@ void CLogger::log(Hyprutils::CLI::eLogLevel level, const std::string_view& str) 
             s         = std::format("\r\033[1;35mCRIT \033[0m]: {}", str);
             levelCode = "CRIT";
             break;
-        default:
-            break;
+        default: break;
     }
 
     if (SRollingLogFollow::get().isRunning()) {
