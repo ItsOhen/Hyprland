@@ -268,7 +268,7 @@ std::expected<void, std::string> CConfigManager::registerLuaLayoutProvider(std::
     provider->state      = L;
     provider->name       = name;
     provider->tableRef   = ref;
-    provider->generation = m_isParsingConfig ? m_reloadGeneration : 0;
+    provider->generation = m_isParsingConfig ? currentGeneration() : 0;
     provider->sourcePath = this->currentLuaSourcePath();
 
     if (!Layout::Supplementary::algoMatcher()->registerTiledAlgo(name, &typeid(CLuaTiledAlgorithm), [provider] { return makeUnique<CLuaTiledAlgorithm>(provider); })) {

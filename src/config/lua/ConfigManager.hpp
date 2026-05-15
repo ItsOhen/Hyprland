@@ -8,6 +8,7 @@
 #include <chrono>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <expected>
 
 #include "../../helpers/memory/Memory.hpp"
@@ -128,11 +129,13 @@ namespace Config::Lua {
 
         std::string currentLuaSourcePath() const;
         void        setCurrentLuaSourcePath(const std::string& path);
+        uint64_t    currentGeneration() const;
+        void        recordDependency(const std::string& requiredPath, const std::string& dependentPath);
 
         std::map<int, SRegistrationMeta> m_luaKeybindRefGen;
 
         uint64_t                         m_reloadGeneration = 0;
-        bool                             isStale(uint64_t gen);
+        bool                             isStale(uint64_t gen, const std::string& sourcePath = "") const;
 
         UP<CLuaEventHandler>             m_eventHandler;
         UP<CLuaCoroutineManager>         m_coroutineManager;
@@ -193,6 +196,7 @@ namespace Config::Lua {
         void                                         clearLuaLayoutProviders();
         void                                         clearHeldLuaRefs();
         void                                         sweepStaleRegistrations(std::optional<std::string> sourcePath = std::nullopt);
+        void                                         cascadeUpReload(const std::string& filePath, std::unordered_set<std::string>& visited);
         std::string                                  luaConfigValueName(const std::string& s);
         std::expected<void, std::string>             registerPluginLuaFunctionInState(uint64_t id, const std::string& namespace_, const std::string& name);
         std::expected<void, std::string>             unregisterPluginLuaFunctionInState(const std::string& namespace_, const std::string& name);
@@ -220,7 +224,9 @@ namespace Config::Lua {
         std::vector<SRegistrationMeta>               m_heldLuaRefGen;
         std::vector<SP<Layouts::SLuaLayoutProvider>> m_luaLayoutProviders;
 
-        std::unordered_map<std::string, std::string> m_moduleNameByPath;
+        std::unordered_map<std::string, std::string>                     m_moduleNameByPath;
+        std::unordered_map<std::string, uint64_t>                        m_fileGenerations;
+        std::unordered_map<std::string, std::unordered_set<std::string>> m_dependents;
 
         // this is here for legacy reasons.
         std::unordered_map<std::string, const void*> m_configPtrMap;
