@@ -202,12 +202,13 @@ void CLuaEventHandler::clearEvents() {
     m_callbacks.clear();
 }
 
-size_t CLuaEventHandler::sweepEvents(uint64_t gen, std::optional<std::string> sourcePath) {
+size_t CLuaEventHandler::sweepEvents(const std::function<uint64_t(const std::string&)>& getFileGen, std::optional<std::string> sourcePath) {
     std::vector<uint64_t> toRemove;
     for (const auto& [handle, sub] : m_subscriptions) {
         if (sub.generation == 0)
             continue;
-        if (sub.generation != gen && (!sourcePath.has_value() || sub.sourcePath == *sourcePath))
+        auto fileGen = getFileGen(sub.sourcePath);
+        if (sub.generation != fileGen && (!sourcePath.has_value() || sub.sourcePath == *sourcePath))
             toRemove.push_back(handle);
     }
     for (const auto& handle : toRemove) {
@@ -216,7 +217,7 @@ size_t CLuaEventHandler::sweepEvents(uint64_t gen, std::optional<std::string> so
     return toRemove.size();
 }
 
-void CLuaEventHandler::sweepEvent(const std::string& eventName, int newRef, uint64_t currentGen) {
+void CLuaEventHandler::sweepEvent(const std::string& eventName, int newRef, const std::function<uint64_t(const std::string&)>& getFileGen, const std::string& sourcePath) {
     auto it = m_callbacks.find(eventName);
     if (it == m_callbacks.end() || it->second.empty())
         return;
@@ -225,7 +226,12 @@ void CLuaEventHandler::sweepEvent(const std::string& eventName, int newRef, uint
     int      oldRef    = 0;
     for (auto handle : it->second) {
         auto subIt = m_subscriptions.find(handle);
-        if (subIt == m_subscriptions.end() || subIt->second.generation == currentGen || subIt->second.generation == 0)
+        if (subIt == m_subscriptions.end() || subIt->second.generation == 0)
+            continue;
+        if (subIt->second.sourcePath != sourcePath)
+            continue;
+        auto fileGen = getFileGen(sourcePath);
+        if (subIt->second.generation == fileGen)
             continue;
         oldHandle = handle;
         oldRef    = subIt->second.luaRef;
