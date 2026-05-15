@@ -123,6 +123,7 @@ namespace Config::Lua {
 
         uint64_t                          m_reloadGeneration = 0;
         std::unordered_map<int, uint64_t> m_luaKeybindRefGen;
+        bool                              isStale(uint64_t gen);
 
         UP<CLuaEventHandler>              m_eventHandler;
         UP<CLuaCoroutineManager>          m_coroutineManager;

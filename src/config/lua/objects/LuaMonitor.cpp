@@ -198,13 +198,14 @@ void Objects::CLuaMonitor::setup(lua_State* L) {
         return 1;
     });
 
-    registerMetatable(L, MT, {
-        {"__index",    monitorIndex},
-        {"__gc",       gcRef<PHLMONITORREF>},
-        {"__eq",       monitorEq},
-        {"__tostring", monitorToString},
-        {"__pairs",    monitorPairs},
-    });
+    registerMetatable(L, MT,
+                      {
+                          {"__index", monitorIndex},
+                          {"__gc", gcRef<PHLMONITORREF>},
+                          {"__eq", monitorEq},
+                          {"__tostring", monitorToString},
+                          {"__pairs", monitorPairs},
+                      });
 }
 
 void Objects::CLuaMonitor::push(lua_State* L, PHLMONITOR mon) {

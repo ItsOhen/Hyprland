@@ -165,8 +165,12 @@ static int hlBind(lua_State* L) {
     SP<SKeybind> pTarget = nullptr;
     for (const auto& ex : g_pKeybindManager->m_keybinds) {
         if (ex->handler == "__lua" && ex->submap.name == kb.submap.name && ex->catchAll == kb.catchAll && (kb.catchAll || (ex->key == kb.key && ex->modmask == kb.modmask))) {
-            pTarget = ex;
-            break;
+            int  ref   = std::stoi(ex->arg);
+            auto genIt = mgr->m_luaKeybindRefGen.find(ref);
+            if (genIt != mgr->m_luaKeybindRefGen.end() && mgr->isStale(genIt->second)) {
+                pTarget = ex;
+                break;
+            }
         }
     }
 

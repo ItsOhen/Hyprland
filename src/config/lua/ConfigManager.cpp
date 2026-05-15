@@ -447,8 +447,7 @@ void CConfigManager::reload() {
                     luaBinds++;
             }
         }
-        Log::logger->log(Log::LUA,
-                         "state before reload gen {}: timers={} layouts={} win_rules={} lay_rules={} devices={} plugins={} refs={} events={} keybinds={} gestures={}",
+        Log::logger->log(Log::LUA, "state before reload gen {}: timers={} layouts={} win_rules={} lay_rules={} devices={} plugins={} refs={} events={} keybinds={} gestures={}",
                          m_reloadGeneration, m_luaTimers.size(), m_luaLayoutProviders.size(), m_luaWindowRules.size(), m_luaLayerRules.size(), m_deviceConfigs.size(),
                          m_registeredPlugins.size(), m_heldLuaRefs.size(), eventSubs, luaBinds, g_pTrackpadGestures->gestureCount());
     }
@@ -522,8 +521,7 @@ void CConfigManager::reloadModule(const std::string& filePath) {
                     luaBinds++;
             }
         }
-        Log::logger->log(Log::LUA,
-                         "module state before gen {}: timers={} layouts={} win_rules={} lay_rules={} devices={} plugins={} refs={} events={} keybinds={} gestures={}",
+        Log::logger->log(Log::LUA, "module state before gen {}: timers={} layouts={} win_rules={} lay_rules={} devices={} plugins={} refs={} events={} keybinds={} gestures={}",
                          m_reloadGeneration, m_luaTimers.size(), m_luaLayoutProviders.size(), m_luaWindowRules.size(), m_luaLayerRules.size(), m_deviceConfigs.size(),
                          m_registeredPlugins.size(), m_heldLuaRefs.size(), eventSubs, luaBinds, g_pTrackpadGestures->gestureCount());
     }
@@ -567,8 +565,7 @@ void CConfigManager::reloadModule(const std::string& filePath) {
                     luaBinds++;
             }
         }
-        Log::logger->log(Log::LUA,
-                         "module state after gen {}: timers={} layouts={} win_rules={} lay_rules={} devices={} plugins={} refs={} events={} keybinds={} gestures={}",
+        Log::logger->log(Log::LUA, "module state after gen {}: timers={} layouts={} win_rules={} lay_rules={} devices={} plugins={} refs={} events={} keybinds={} gestures={}",
                          m_reloadGeneration, m_luaTimers.size(), m_luaLayoutProviders.size(), m_luaWindowRules.size(), m_luaLayerRules.size(), m_deviceConfigs.size(),
                          m_registeredPlugins.size(), m_heldLuaRefs.size(), eventSubs, luaBinds, g_pTrackpadGestures->gestureCount());
     }
@@ -1346,6 +1343,10 @@ void CConfigManager::clearHeldLuaRefs() {
 
 bool CConfigManager::isDynamicParse() const {
     return !m_isParsingConfig || m_isEvaluating;
+}
+
+bool CConfigManager::isStale(uint64_t gen) {
+    return gen != 0 && gen < m_reloadGeneration;
 }
 
 void CConfigManager::reregisterLuaPluginFns() {
