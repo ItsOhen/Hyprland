@@ -120,7 +120,7 @@ static int safeLuaRequire(lua_State* L) {
 
     const int status = lua_pcall(L, nargs, LUA_MULTRET, 0);
 
-    if (mgrSafe)
+    if (mgrSafe && !prevSourcePath.empty())
         mgrSafe->setCurrentLuaSourcePath(std::move(prevSourcePath));
 
     if (status == LUA_OK)
@@ -500,6 +500,16 @@ void CConfigManager::reload() {
     g_pTrackpadGestures->clearGestures();
     m_luaGestures.clear();
 
+    cleanTimers();
+    clearLuaLayoutProviders();
+    clearHeldLuaRefs();
+    m_deviceConfigs.clear();
+    m_deviceConfigGen.clear();
+    m_registeredPlugins.clear();
+    m_registeredPluginGen.clear();
+    m_luaKeybindRefGen.clear();
+    std::erase_if(g_pKeybindManager->m_keybinds, [](const auto& kb) { return kb->handler == "__lua"; });
+
     reregisterLuaPluginFns();
 
     for (const auto& v : m_configValues) {
@@ -816,7 +826,7 @@ void CConfigManager::sweepStaleRegistrations(std::optional<std::string> sourcePa
             if (kb->handler == "__lua") {
                 int  ref   = std::stoi(kb->arg);
                 auto genIt = m_luaKeybindRefGen.find(ref);
-                if (genIt == m_luaKeybindRefGen.end() || (isStale(genIt->second.generation, genIt->second.sourcePath) && matchesSource(genIt->second.sourcePath))) {
+                if (genIt != m_luaKeybindRefGen.end() && isStale(genIt->second.generation, genIt->second.sourcePath) && matchesSource(genIt->second.sourcePath)) {
                     keybindsToRemove.push_back(kb);
                     if (m_lua)
                         luaL_unref(m_lua, LUA_REGISTRYINDEX, ref);
