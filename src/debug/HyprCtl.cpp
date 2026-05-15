@@ -2018,8 +2018,8 @@ void CHyprCtl::unregisterCommand(const SP<SHyprCtlCommand>& cmd) {
 }
 
 std::string CHyprCtl::getReply(std::string request) {
-    auto format                          = eHyprCtlOutputFormat::FORMAT_NORMAL;
-    bool reloadAll                       = false;
+    auto format                             = eHyprCtlOutputFormat::FORMAT_NORMAL;
+    bool reloadAll                          = false;
     m_currentRequestParams.all              = false;
     m_currentRequestParams.sysInfoConfig    = false;
     m_currentRequestParams.rollingLogLevel  = false;

@@ -574,6 +574,8 @@ void CConfigManager::reloadModule(const std::string& filePath) {
 
     Config::watcher()->update();
 
+    sweepStaleRegistrations();
+
     postConfigReload();
 }
 
