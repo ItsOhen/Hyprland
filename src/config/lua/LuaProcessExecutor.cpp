@@ -63,9 +63,9 @@ class CProcessExecutor::Impl {
                 return;
             }
 
-            result.exitCode = proc.exitCode();
-            result.stdout   = proc.stdOut();
-            result.stderr   = proc.stdErr();
+            result.exitCode   = proc.exitCode();
+            result.std_output = proc.stdOut();
+            result.std_error  = proc.stdErr();
 
             postToMain([callback, result]() { callback(result); });
         };
