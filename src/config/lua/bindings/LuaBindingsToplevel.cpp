@@ -168,7 +168,7 @@ static int hlBind(lua_State* L) {
         if (ex->handler == "__lua" && ex->submap.name == kb.submap.name && ex->catchAll == kb.catchAll && (kb.catchAll || (ex->key == kb.key && ex->modmask == kb.modmask))) {
             int  ref   = std::stoi(ex->arg);
             auto genIt = mgr->m_luaKeybindRefGen.find(ref);
-            if (genIt != mgr->m_luaKeybindRefGen.end() && mgr->isStale(genIt->second)) {
+            if (genIt != mgr->m_luaKeybindRefGen.end() && mgr->isStale(genIt->second.generation)) {
                 pTarget = ex;
                 break;
             }
@@ -194,7 +194,7 @@ static int hlBind(lua_State* L) {
         pTarget       = g_pKeybindManager->addKeybind(kb);
     }
 
-    mgr->m_luaKeybindRefGen[newRef] = !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0;
+    mgr->m_luaKeybindRefGen[newRef] = {.generation = !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0, .sourcePath = CConfigManager::currentLuaSourcePath(L)};
 
     if (lua_istable(L, 3)) {
         auto getB = [&](const char* f) {
@@ -408,13 +408,14 @@ static int hlOn(lua_State* L) {
     lua_pushvalue(L, 2);
     int        ref = luaL_ref(L, LUA_REGISTRYINDEX);
 
-    const auto gen = !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0;
+    const auto gen     = !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0;
+    const auto srcPath = CConfigManager::currentLuaSourcePath(L);
 
     // Copy upvalues from old callback for same event, then remove old subs
     if (mgr->m_eventHandler)
         mgr->m_eventHandler->sweepEvent(*evName, ref, gen);
 
-    const auto handle = mgr->m_eventHandler->registerEvent(*evName, ref, gen);
+    const auto handle = mgr->m_eventHandler->registerEvent(*evName, ref, gen, srcPath);
     if (!handle.has_value()) {
         luaL_unref(L, LUA_REGISTRYINDEX, ref);
         const auto& known = CLuaEventHandler::knownEvents();
@@ -483,6 +484,7 @@ static int hlTimer(lua_State* L) {
             it->repeat     = repeat;
             it->timeoutMs  = timeoutMs;
             it->generation = !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0;
+            it->sourcePath = CConfigManager::currentLuaSourcePath(L);
 
             Objects::CLuaTimer::push(L, it->timer, timeoutMs);
             return 1;
@@ -530,7 +532,8 @@ static int hlTimer(lua_State* L) {
         },
         nullptr);
 
-    mgr->m_luaTimers.emplace_back(CConfigManager::SLuaTimer{timer, fnRef, coRef, co, !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0, id, repeat, timeoutMs});
+    mgr->m_luaTimers.emplace_back(
+        CConfigManager::SLuaTimer{timer, fnRef, coRef, co, !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0, CConfigManager::currentLuaSourcePath(L), id, repeat, timeoutMs});
 
     if (g_pEventLoopManager)
         g_pEventLoopManager->addTimer(timer);

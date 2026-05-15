@@ -159,13 +159,13 @@ CLuaEventHandler::~CLuaEventHandler() {
     clearEvents();
 }
 
-std::optional<uint64_t> CLuaEventHandler::registerEvent(const std::string& name, int luaRef, uint64_t generation) {
+std::optional<uint64_t> CLuaEventHandler::registerEvent(const std::string& name, int luaRef, uint64_t generation, const std::string& sourcePath) {
     if (!knownEvents().contains(name))
         return std::nullopt;
 
     const auto handle = m_nextHandle++;
     m_callbacks[name].push_back(handle);
-    m_subscriptions[handle] = {.eventName = name, .luaRef = luaRef, .generation = generation};
+    m_subscriptions[handle] = {.eventName = name, .luaRef = luaRef, .generation = generation, .sourcePath = sourcePath};
 
     return handle;
 }
@@ -202,10 +202,12 @@ void CLuaEventHandler::clearEvents() {
     m_callbacks.clear();
 }
 
-size_t CLuaEventHandler::sweepEvents(uint64_t gen) {
+size_t CLuaEventHandler::sweepEvents(uint64_t gen, std::optional<std::string> sourcePath) {
     std::vector<uint64_t> toRemove;
     for (const auto& [handle, sub] : m_subscriptions) {
-        if (sub.generation != 0 && sub.generation != gen)
+        if (sub.generation == 0)
+            continue;
+        if (sub.generation != gen && (!sourcePath.has_value() || sub.sourcePath == *sourcePath))
             toRemove.push_back(handle);
     }
     for (const auto& handle : toRemove) {
