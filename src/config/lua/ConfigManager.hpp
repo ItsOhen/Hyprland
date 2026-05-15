@@ -126,7 +126,7 @@ namespace Config::Lua {
             std::string sourcePath = "";
         };
 
-        static std::string               currentLuaSourcePath(lua_State* L);
+        std::string currentLuaSourcePath() const;
 
         std::map<int, SRegistrationMeta> m_luaKeybindRefGen;
 
@@ -213,6 +213,7 @@ namespace Config::Lua {
         std::string                                  m_watchdogContext;
 
         std::string                                  m_mainConfigPath;
+        std::string                                  m_currentSourcePath;
 
         std::vector<int>                             m_heldLuaRefs;
         std::vector<SRegistrationMeta>               m_heldLuaRefGen;

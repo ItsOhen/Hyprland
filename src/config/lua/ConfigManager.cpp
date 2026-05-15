@@ -190,15 +190,8 @@ CConfigManager::CConfigManager() : m_mainConfigPath(Supplementary::Jeremy::getMa
     ;
 }
 
-std::string CConfigManager::currentLuaSourcePath(lua_State* L) {
-    lua_Debug ar;
-    if (lua_getstack(L, 1, &ar) && lua_getinfo(L, "S", &ar)) {
-        if (ar.source && ar.source[0] == '@')
-            return ar.source + 1;
-        if (ar.source)
-            return ar.source;
-    }
-    return "";
+std::string CConfigManager::currentLuaSourcePath() const {
+    return m_currentSourcePath;
 }
 
 CConfigManager* CConfigManager::fromLuaState(lua_State* L) {
@@ -346,6 +339,33 @@ void CConfigManager::reinitLuaState() {
                     self->m_configPaths.emplace_back(path);
                 if (path && modName)
                     self->m_moduleNameByPath[path] = modName;
+
+                // upvalue 3: original_loader, 4: CConfigManager*, 5: path
+                lua_pushvalue(L, -2);                  // dup original loader
+                lua_pushvalue(L, lua_upvalueindex(2)); // self
+                lua_pushstring(L, path);               // path
+                lua_pushcclosure(
+                    L,
+                    [](lua_State* L2) -> int {
+                        auto*       self2 = sc<CConfigManager*>(lua_touserdata(L2, lua_upvalueindex(2)));
+                        const char* path2 = lua_tostring(L2, lua_upvalueindex(3));
+
+                        std::string prev           = std::move(self2->m_currentSourcePath);
+                        self2->m_currentSourcePath = path2 ? path2 : "";
+
+                        lua_pushvalue(L2, lua_upvalueindex(1));
+                        lua_insert(L2, 1);
+                        int status = lua_pcall(L2, 1, LUA_MULTRET, 0);
+
+                        self2->m_currentSourcePath = std::move(prev);
+
+                        if (status != LUA_OK)
+                            lua_error(L2);
+
+                        return lua_gettop(L2);
+                    },
+                    3);
+                lua_replace(L, -3); // replace original loader with wrapped loader
             }
             return 2;
         },
@@ -447,6 +467,7 @@ void CConfigManager::reload() {
     // phase 2: syntax is valid, execute with generation-based sweep.
 
     m_reloadGeneration++;
+    m_currentSourcePath = m_mainConfigPath;
     Log::logger->log(Log::LUA, "reload gen {}: starting, m_lua kept alive", m_reloadGeneration);
 
     {
@@ -540,6 +561,7 @@ void CConfigManager::reloadModule(const std::string& filePath) {
     m_errors.clear();
     m_isParsingConfig = true;
     m_reloadGeneration++;
+    m_currentSourcePath = filePath;
     Hyprutils::Utils::CScopeGuard x([this] { m_isParsingConfig = false; });
 
     // clear package.loaded[moduleName] so require() re-executes the module
