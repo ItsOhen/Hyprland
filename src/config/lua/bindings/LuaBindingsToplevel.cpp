@@ -194,7 +194,7 @@ static int hlBind(lua_State* L) {
         pTarget       = g_pKeybindManager->addKeybind(kb);
     }
 
-    mgr->m_luaKeybindRefGen[newRef] = {.generation = !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0, .sourcePath = CConfigManager::currentLuaSourcePath(L)};
+    mgr->m_luaKeybindRefGen[newRef] = {.generation = !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0, .sourcePath = mgr->currentLuaSourcePath()};
 
     if (lua_istable(L, 3)) {
         auto getB = [&](const char* f) {
@@ -409,7 +409,7 @@ static int hlOn(lua_State* L) {
     int        ref = luaL_ref(L, LUA_REGISTRYINDEX);
 
     const auto gen     = !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0;
-    const auto srcPath = CConfigManager::currentLuaSourcePath(L);
+    const auto srcPath = mgr->currentLuaSourcePath();
 
     // Copy upvalues from old callback for same event, then remove old subs
     if (mgr->m_eventHandler)
@@ -484,7 +484,7 @@ static int hlTimer(lua_State* L) {
             it->repeat     = repeat;
             it->timeoutMs  = timeoutMs;
             it->generation = !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0;
-            it->sourcePath = CConfigManager::currentLuaSourcePath(L);
+            it->sourcePath = mgr->currentLuaSourcePath();
 
             Objects::CLuaTimer::push(L, it->timer, timeoutMs);
             return 1;
@@ -533,7 +533,7 @@ static int hlTimer(lua_State* L) {
         nullptr);
 
     mgr->m_luaTimers.emplace_back(
-        CConfigManager::SLuaTimer{timer, fnRef, coRef, co, !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0, CConfigManager::currentLuaSourcePath(L), id, repeat, timeoutMs});
+        CConfigManager::SLuaTimer{timer, fnRef, coRef, co, !mgr->isDynamicParse() ? mgr->m_reloadGeneration : 0, mgr->currentLuaSourcePath(), id, repeat, timeoutMs});
 
     if (g_pEventLoopManager)
         g_pEventLoopManager->addTimer(timer);
