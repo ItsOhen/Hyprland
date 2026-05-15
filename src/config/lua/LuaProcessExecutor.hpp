@@ -9,8 +9,8 @@ namespace Config::Lua {
 
     struct SProcessResult {
         int         exitCode = -1;
-        std::string stdout;
-        std::string stderr;
+        std::string std_output;
+        std::string std_error;
         uint64_t    processId = 0;
         bool        timedOut  = false;
         std::string error;

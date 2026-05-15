@@ -97,9 +97,9 @@ bool CLuaCoroutineManager::resumeThread(uint64_t threadId, const std::any& resul
         } else {
             lua_pushinteger(thread, res.exitCode);
             lua_setfield(thread, -2, "ec");
-            lua_pushstring(thread, res.stdout.c_str());
+            lua_pushstring(thread, res.std_output.c_str());
             lua_setfield(thread, -2, "out");
-            lua_pushstring(thread, res.stderr.c_str());
+            lua_pushstring(thread, res.std_error.c_str());
             lua_setfield(thread, -2, "err");
         }
 
