@@ -110,10 +110,19 @@ static int safeLuaRequire(lua_State* L) {
     if (lua_isstring(L, 1))
         moduleName = lua_tostring(L, 1);
 
+    auto*       mgrSafe = CConfigManager::fromLuaState(L);
+    std::string prevSourcePath;
+    if (mgrSafe)
+        prevSourcePath = mgrSafe->currentLuaSourcePath();
+
     lua_pushvalue(L, lua_upvalueindex(1));
     lua_insert(L, 1);
 
     const int status = lua_pcall(L, nargs, LUA_MULTRET, 0);
+
+    if (mgrSafe)
+        mgrSafe->setCurrentLuaSourcePath(std::move(prevSourcePath));
+
     if (status == LUA_OK)
         return lua_gettop(L);
 
@@ -192,6 +201,10 @@ CConfigManager::CConfigManager() : m_mainConfigPath(Supplementary::Jeremy::getMa
 
 std::string CConfigManager::currentLuaSourcePath() const {
     return m_currentSourcePath;
+}
+
+void CConfigManager::setCurrentLuaSourcePath(const std::string& path) {
+    m_currentSourcePath = path;
 }
 
 CConfigManager* CConfigManager::fromLuaState(lua_State* L) {
@@ -340,32 +353,7 @@ void CConfigManager::reinitLuaState() {
                 if (path && modName)
                     self->m_moduleNameByPath[path] = modName;
 
-                // upvalue 3: original_loader, 4: CConfigManager*, 5: path
-                lua_pushvalue(L, -2);                  // dup original loader
-                lua_pushvalue(L, lua_upvalueindex(2)); // self
-                lua_pushstring(L, path);               // path
-                lua_pushcclosure(
-                    L,
-                    [](lua_State* L2) -> int {
-                        auto*       self2 = sc<CConfigManager*>(lua_touserdata(L2, lua_upvalueindex(2)));
-                        const char* path2 = lua_tostring(L2, lua_upvalueindex(3));
-
-                        std::string prev           = std::move(self2->m_currentSourcePath);
-                        self2->m_currentSourcePath = path2 ? path2 : "";
-
-                        lua_pushvalue(L2, lua_upvalueindex(1));
-                        lua_insert(L2, 1);
-                        int status = lua_pcall(L2, 1, LUA_MULTRET, 0);
-
-                        self2->m_currentSourcePath = std::move(prev);
-
-                        if (status != LUA_OK)
-                            lua_error(L2);
-
-                        return lua_gettop(L2);
-                    },
-                    3);
-                lua_replace(L, -3); // replace original loader with wrapped loader
+                self->setCurrentLuaSourcePath(path);
             }
             return 2;
         },
