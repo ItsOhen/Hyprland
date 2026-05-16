@@ -120,8 +120,14 @@ static int safeLuaRequire(lua_State* L) {
 
     const int status = lua_pcall(L, nargs, LUA_MULTRET, 0);
 
+    if (mgrSafe && !moduleName.empty() && !prevSourcePath.empty()) {
+        auto depPath = mgrSafe->moduleNameToPath(moduleName);
+        if (!depPath.empty() && depPath != prevSourcePath)
+            mgrSafe->recordDependency(depPath, prevSourcePath);
+    }
+
     if (mgrSafe && !prevSourcePath.empty())
-        mgrSafe->setCurrentLuaSourcePath(std::move(prevSourcePath));
+        mgrSafe->setCurrentLuaSourcePath(prevSourcePath);
 
     if (status == LUA_OK)
         return lua_gettop(L);
@@ -214,6 +220,11 @@ uint64_t CConfigManager::currentGeneration() const {
 
 void CConfigManager::recordDependency(const std::string& requiredPath, const std::string& dependentPath) {
     m_dependents[requiredPath].insert(dependentPath);
+}
+
+std::string CConfigManager::moduleNameToPath(const std::string& name) const {
+    auto it = m_moduleNameToPath.find(name);
+    return it != m_moduleNameToPath.end() ? it->second : "";
 }
 
 CConfigManager* CConfigManager::fromLuaState(lua_State* L) {
@@ -359,8 +370,10 @@ void CConfigManager::reinitLuaState() {
                 const char* modName = lua_tostring(L, 1);
                 if (std::ranges::find(self->m_configPaths, path) == self->m_configPaths.end())
                     self->m_configPaths.emplace_back(path);
-                if (path && modName)
-                    self->m_moduleNameByPath[path] = modName;
+                if (path && modName) {
+                    self->m_moduleNameByPath[path]    = modName;
+                    self->m_moduleNameToPath[modName] = path;
+                }
 
                 auto callerPath = self->currentLuaSourcePath();
                 self->setCurrentLuaSourcePath(path);
@@ -412,6 +425,7 @@ void CConfigManager::reload() {
     // reset tracked paths; the searcher hook will re-populate them as require() runs
     m_configPaths.clear();
     m_moduleNameByPath.clear();
+    m_moduleNameToPath.clear();
     m_dependents.clear();
     m_fileGenerations.clear();
     m_configPaths.emplace_back(m_mainConfigPath);
