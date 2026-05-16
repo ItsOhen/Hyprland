@@ -131,6 +131,7 @@ namespace Config::Lua {
         void        setCurrentLuaSourcePath(const std::string& path);
         uint64_t    currentGeneration() const;
         void        recordDependency(const std::string& requiredPath, const std::string& dependentPath);
+        std::string moduleNameToPath(const std::string& name) const;
 
         std::map<int, SRegistrationMeta> m_luaKeybindRefGen;
 
@@ -225,6 +226,7 @@ namespace Config::Lua {
         std::vector<SP<Layouts::SLuaLayoutProvider>> m_luaLayoutProviders;
 
         std::unordered_map<std::string, std::string>                     m_moduleNameByPath;
+        std::unordered_map<std::string, std::string>                     m_moduleNameToPath;
         std::unordered_map<std::string, uint64_t>                        m_fileGenerations;
         std::unordered_map<std::string, std::unordered_set<std::string>> m_dependents;
 
