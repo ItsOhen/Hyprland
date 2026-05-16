@@ -122,31 +122,6 @@ static std::expected<void, std::string> parseKeyString(SKeybind& kb, std::string
     return {};
 }
 
-static void copyUpvalues(lua_State* L, int oldFuncIdx, int newFuncIdx, std::string context = {}) {
-    oldFuncIdx = lua_absindex(L, oldFuncIdx);
-    newFuncIdx = lua_absindex(L, newFuncIdx);
-    int copied = 0;
-    for (int i = 1;; i++) {
-        const char* name = lua_getupvalue(L, oldFuncIdx, i);
-        if (!name)
-            break;
-        lua_getupvalue(L, newFuncIdx, i);
-        if (std::string_view(name) == "_ENV") {
-            lua_pop(L, 2);
-            continue;
-        }
-        if (lua_isnil(L, -1) && !lua_isnil(L, -2)) {
-            lua_pop(L, 1);
-            lua_setupvalue(L, newFuncIdx, i);
-            copied++;
-        } else {
-            lua_pop(L, 2);
-        }
-    }
-    if (copied > 0)
-        Log::logger->log(Log::LUA, "copyUpvalues({}): copied {} upvalue(s) from old closure", context.empty() ? "?" : context, copied);
-}
-
 static int hlBind(lua_State* L) {
     auto*            mgr  = (CConfigManager*)lua_touserdata(L, lua_upvalueindex(1));
     std::string_view keys = luaL_checkstring(L, 1);
@@ -181,7 +156,7 @@ static int hlBind(lua_State* L) {
         int oldRef = std::stoi(pTarget->arg);
         lua_rawgeti(L, LUA_REGISTRYINDEX, oldRef);
         lua_rawgeti(L, LUA_REGISTRYINDEX, newRef);
-        copyUpvalues(L, -2, -1, std::format("hl.bind(\"{}\")", keys));
+        CConfigManager::copyUpvalues(L, -2, -1, std::format("hl.bind(\"{}\")", keys));
         lua_pop(L, 2);
 
         luaL_unref(L, LUA_REGISTRYINDEX, oldRef);
@@ -194,7 +169,7 @@ static int hlBind(lua_State* L) {
         pTarget       = g_pKeybindManager->addKeybind(kb);
     }
 
-    mgr->m_luaKeybindRefGen[newRef] = {.generation = !mgr->isDynamicParse() ? mgr->currentGeneration() : 0, .sourcePath = mgr->currentLuaSourcePath()};
+    mgr->m_luaKeybindRefGen[newRef] = {.generation = !mgr->isSweepImmune() ? mgr->currentGeneration() : 0, .sourcePath = mgr->currentLuaSourcePath()};
 
     if (lua_istable(L, 3)) {
         auto getB = [&](const char* f) {
@@ -408,12 +383,12 @@ static int hlOn(lua_State* L) {
     lua_pushvalue(L, 2);
     int        ref = luaL_ref(L, LUA_REGISTRYINDEX);
 
-    const auto gen     = !mgr->isDynamicParse() ? mgr->currentGeneration() : 0;
+    const auto gen     = !mgr->isSweepImmune() ? mgr->currentGeneration() : 0;
     const auto srcPath = mgr->currentLuaSourcePath();
 
     // Copy upvalues from old callback for same event, then remove old subs
     if (mgr->m_eventHandler)
-        mgr->m_eventHandler->sweepEvent(*evName, ref, [&](const std::string& sp) -> uint64_t { return mgr->isDynamicParse() ? 0 : mgr->currentGeneration(); }, srcPath);
+        mgr->m_eventHandler->sweepEvent(*evName, ref, [&](const std::string& sp) -> uint64_t { return mgr->isSweepImmune() ? 0 : mgr->currentGeneration(); }, srcPath);
 
     const auto handle = mgr->m_eventHandler->registerEvent(*evName, ref, gen, srcPath);
     if (!handle.has_value()) {
@@ -483,7 +458,7 @@ static int hlTimer(lua_State* L) {
             it->coRef      = coRef;
             it->repeat     = repeat;
             it->timeoutMs  = timeoutMs;
-            it->generation = !mgr->isDynamicParse() ? mgr->currentGeneration() : 0;
+            it->generation = !mgr->isSweepImmune() ? mgr->currentGeneration() : 0;
             it->sourcePath = mgr->currentLuaSourcePath();
 
             Objects::CLuaTimer::push(L, it->timer, timeoutMs);
@@ -533,7 +508,7 @@ static int hlTimer(lua_State* L) {
         nullptr);
 
     mgr->m_luaTimers.emplace_back(
-        CConfigManager::SLuaTimer{timer, fnRef, coRef, co, !mgr->isDynamicParse() ? mgr->currentGeneration() : 0, mgr->currentLuaSourcePath(), id, repeat, timeoutMs});
+        CConfigManager::SLuaTimer{timer, fnRef, coRef, co, !mgr->isSweepImmune() ? mgr->currentGeneration() : 0, mgr->currentLuaSourcePath(), id, repeat, timeoutMs});
 
     if (g_pEventLoopManager)
         g_pEventLoopManager->addTimer(timer);

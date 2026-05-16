@@ -16,6 +16,8 @@
 #include "../../managers/eventLoop/EventLoopTimer.hpp"
 
 #include "types/LuaConfigValue.hpp"
+#include "DependencyGraph.hpp"
+#include "ReloadPipeline.hpp"
 #include "LuaEventHandler.hpp"
 #include "LuaCoroutineManager.hpp"
 #include "LuaProcessExecutor.hpp"
@@ -105,6 +107,8 @@ namespace Config::Lua {
 
         static CConfigManager*     fromLuaState(lua_State* L);
 
+        static void                copyUpvalues(lua_State* L, int oldFuncIdx, int newFuncIdx, std::string context = {});
+
         void                       addModulePath(const std::string& path, const std::string& moduleName);
 
         static constexpr int       LUA_WATCHDOG_INSTRUCTION_INTERVAL = 10000;
@@ -117,7 +121,7 @@ namespace Config::Lua {
         static constexpr int       LUA_TIMEOUT_DISPATCH_MS           = 100;
 
         bool                       isFirstLaunch() const;
-        bool                       isDynamicParse() const;
+        bool                       isSweepImmune() const;
 
         std::string                m_currentSubmap;
         std::string                m_currentSubmapReset;
@@ -132,6 +136,11 @@ namespace Config::Lua {
         uint64_t    currentGeneration() const;
         void        recordDependency(const std::string& requiredPath, const std::string& dependentPath);
         std::string moduleNameToPath(const std::string& name) const;
+
+        void        pushLuaTracebackHandler();
+        uint64_t    advanceFileGeneration(const std::string& filePath);
+        void        logStateBeforeReload(const std::string& filePath, uint64_t gen);
+        void        logStateAfterReload(const std::string& filePath, uint64_t gen);
 
         std::map<int, SRegistrationMeta> m_luaKeybindRefGen;
 
@@ -191,12 +200,12 @@ namespace Config::Lua {
       private:
         void                                         reinitLuaState();
         void                                         postConfigReload();
-        void                                         reloadModule(const std::string& filePath);
+        void                                         reloadModule(const std::string& filePath, std::unordered_set<std::string>& visited);
         void                                         registerValue(const char* name, ILuaConfigValue* val);
         void                                         cleanTimers();
         void                                         clearLuaLayoutProviders();
         void                                         clearHeldLuaRefs();
-        void                                         sweepStaleRegistrations(std::optional<std::string> sourcePath = std::nullopt);
+        void                                         sweepStaleRegistrations();
         void                                         cascadeUpReload(const std::string& filePath, std::unordered_set<std::string>& visited);
         std::string                                  luaConfigValueName(const std::string& s);
         std::expected<void, std::string>             registerPluginLuaFunctionInState(uint64_t id, const std::string& namespace_, const std::string& name);
@@ -225,10 +234,9 @@ namespace Config::Lua {
         std::vector<SRegistrationMeta>               m_heldLuaRefGen;
         std::vector<SP<Layouts::SLuaLayoutProvider>> m_luaLayoutProviders;
 
-        std::unordered_map<std::string, std::string>                     m_moduleNameByPath;
-        std::unordered_map<std::string, std::string>                     m_moduleNameToPath;
+        UP<CDependencyGraph>                                             m_dependencyGraph;
+        UP<CReloadPipeline>                                              m_reloadPipeline;
         std::unordered_map<std::string, uint64_t>                        m_fileGenerations;
-        std::unordered_map<std::string, std::unordered_set<std::string>> m_dependents;
 
         // this is here for legacy reasons.
         std::unordered_map<std::string, const void*> m_configPtrMap;
@@ -248,6 +256,7 @@ namespace Config::Lua {
         ILuaConfigValue*                findDeviceValue(const std::string& dev, const std::string& field);
 
         friend class CConfigManagerPluginLuaTestAccessor;
+        friend class CReloadPipeline;
     };
 
     WP<CConfigManager> mgr();

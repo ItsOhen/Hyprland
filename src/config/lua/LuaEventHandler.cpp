@@ -202,13 +202,13 @@ void CLuaEventHandler::clearEvents() {
     m_callbacks.clear();
 }
 
-size_t CLuaEventHandler::sweepEvents(const std::function<uint64_t(const std::string&)>& getFileGen, std::optional<std::string> sourcePath) {
+size_t CLuaEventHandler::sweepEvents(const std::function<uint64_t(const std::string&)>& getFileGen) {
     std::vector<uint64_t> toRemove;
     for (const auto& [handle, sub] : m_subscriptions) {
         if (sub.generation == 0)
             continue;
         auto fileGen = getFileGen(sub.sourcePath);
-        if (sub.generation != fileGen && (!sourcePath.has_value() || sub.sourcePath == *sourcePath))
+        if (sub.generation != fileGen)
             toRemove.push_back(handle);
     }
     for (const auto& handle : toRemove) {
@@ -244,32 +244,9 @@ void CLuaEventHandler::sweepEvent(const std::string& eventName, int newRef, cons
     lua_rawgeti(m_lua, LUA_REGISTRYINDEX, oldRef);
     lua_rawgeti(m_lua, LUA_REGISTRYINDEX, newRef);
 
-    const int oldFuncIdx = lua_gettop(m_lua) - 1;
-    const int newFuncIdx = lua_gettop(m_lua);
-
-    int       copied = 0;
-    for (int i = 1;; i++) {
-        const char* name = lua_getupvalue(m_lua, oldFuncIdx, i);
-        if (!name)
-            break;
-        lua_getupvalue(m_lua, newFuncIdx, i);
-        if (std::string_view(name) == "_ENV") {
-            lua_pop(m_lua, 2);
-            continue;
-        }
-        if (lua_isnil(m_lua, -1) && !lua_isnil(m_lua, -2)) {
-            lua_pop(m_lua, 1);
-            lua_setupvalue(m_lua, newFuncIdx, i);
-            copied++;
-        } else {
-            lua_pop(m_lua, 2);
-        }
-    }
+    CConfigManager::copyUpvalues(m_lua, -2, -1, std::format("sweepEvent(\"{}\")", eventName));
 
     lua_pop(m_lua, 2);
-
-    if (copied > 0)
-        Log::logger->log(Log::LUA, "sweepEvent(\"{}\"): copied {} upvalue(s) from old closure", eventName, copied);
 
     unregisterEvent(oldHandle);
 }
