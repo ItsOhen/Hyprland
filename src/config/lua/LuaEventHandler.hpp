@@ -36,8 +36,8 @@ namespace Config::Lua {
         bool                    unregisterEvent(uint64_t handle);
 
         void                    clearEvents();
-        size_t sweepEvents(const std::function<uint64_t(const std::string&)>& getFileGen);
-        void   sweepEvent(const std::string& eventName, int newRef, const std::function<uint64_t(const std::string&)>& getFileGen, const std::string& sourcePath);
+        size_t                  sweepEvents(const std::function<uint64_t(const std::string&)>& getFileGen);
+        void                    sweepEvent(const std::string& eventName, int newRef, const std::function<uint64_t(const std::string&)>& getFileGen, const std::string& sourcePath);
         size_t                  subscriptionCount() const {
             return m_subscriptions.size();
         }
