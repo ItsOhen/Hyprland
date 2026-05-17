@@ -48,8 +48,7 @@ namespace Layout::Tiled {
         void                     insertStrip(ssize_t afterIndex, float size = 1.0F);
         void                     removeStrip(size_t index);
         size_t                   stripCount() const;
-        SStripData&              getStrip(size_t index);
-        const SStripData&        getStrip(size_t index) const;
+        SP<SStripData>           getStrip(size_t index);
         void                     swapStrips(size_t a, size_t b);
 
         void                     setOffset(double offset);
@@ -76,7 +75,7 @@ namespace Layout::Tiled {
 
       private:
         eScrollDirection        m_direction = SCROLL_DIR_RIGHT;
-        std::vector<SStripData> m_strips;
+        std::vector<SP<SStripData>> m_strips;
         double                  m_offset = 0.0;
         struct SScrollInhibitor m_scrollInhibitor; // for inhibiting scrolling (prevents the viewport from moving)
 

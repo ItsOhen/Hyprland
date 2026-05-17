@@ -3,7 +3,6 @@
 #include "../../TiledAlgorithm.hpp"
 #include "../../../../helpers/math/Direction.hpp"
 #include "ScrollTapeController.hpp"
-#include "../../../../helpers/signal/Signal.hpp"
 
 #include <optional>
 #include <vector>
@@ -61,12 +60,12 @@ namespace Layout::Tiled {
         float       getTargetSize(SP<SScrollingTargetData> target) const;
         void        setTargetSize(SP<SScrollingTargetData> target, float size);
 
-        SStripData* resolveStrip() const;
+        SP<SStripData> resolveStrip() const;
         float       renormalizeForNewTarget();
     };
 
     struct SScrollingData {
-        SScrollingData(CScrollingAlgorithm* algo);
+        SScrollingData(CScrollingAlgorithm& algo);
 
         std::vector<SP<SColumnData>> columns;
 
@@ -88,7 +87,7 @@ namespace Layout::Tiled {
 
         void                         recalculate(bool forceInstant = false);
 
-        CScrollingAlgorithm*         algorithm = nullptr;
+        CScrollingAlgorithm&         algorithm;
         WP<SScrollingData>           self;
         std::optional<double>        lockedCameraOffset;
     };
@@ -159,8 +158,8 @@ namespace Layout::Tiled {
         };
 
         void                                syncFullscreenTargets();
-        SFullscreenScrollState*             fullscreenStateForTarget(SP<ITarget> target);
-        SFullscreenScrollState*             fullscreenStateForData(SP<SScrollingTargetData> target);
+        SP<SFullscreenScrollState>             fullscreenStateForTarget(SP<ITarget> target);
+        SP<SFullscreenScrollState>             fullscreenStateForData(SP<SScrollingTargetData> target);
         SP<SScrollingTargetData>            findFullscreenTargetData(bool requireCovers) const;
         SP<SScrollingTargetData>            fullscreenTargetDataForColumn(SP<SColumnData> col) const;
         bool                                isFullscreenTarget(SP<SScrollingTargetData> target) const;
@@ -180,8 +179,7 @@ namespace Layout::Tiled {
 
         float                               defaultColumnWidth();
 
-        std::vector<SFullscreenScrollState> m_fullscreenTargets;
-        std::vector<SFullscreenScrollState> m_maximizeTargets;
+        std::vector<SP<SFullscreenScrollState>> m_fullscreenTargets;
         bool                                m_lastFullscreenCover = false;
 
         friend struct SScrollingData;
