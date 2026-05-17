@@ -915,24 +915,26 @@ void CScrollingAlgorithm::recalculate(eRecalculateReason reason) {
 }
 
 void CScrollingAlgorithm::syncFullscreenTargets() {
+    auto shouldTrack = [&](SP<ITarget> t) {
+        return t && t->space() == m_parent->space() &&
+               (t->fullscreenMode() == FSMODE_FULLSCREEN || t->fullscreenMode() == FSMODE_MAXIMIZED);
+    };
 
-    // Fullscreened (mode = FSMODE_FULLSCREEN)
+    auto syncWidth = [&](SP<ITarget> t, SP<SColumnData> col) {
+        if (!col)
+            return;
+        col->setColumnWidth(t->fullscreenMode() == FSMODE_FULLSCREEN ? fullscreenColumnWidth() : 1.F);
+    };
     for (auto it = m_fullscreenTargets.begin(); it != m_fullscreenTargets.end();) {
         const auto TARGET = it->target.lock();
 
-        if (!TARGET || !TARGET->layoutManagedFullscreen() || TARGET->fullscreenMode() != FSMODE_FULLSCREEN || TARGET->space() != m_parent->space()) {
+        if (!shouldTrack(TARGET)) {
             it = m_fullscreenTargets.erase(it);
             continue;
         }
 
-        const auto TDATA = dataFor(TARGET);
-        if (!TDATA) {
-            ++it;
-            continue;
-        }
-
-        if (const auto COL = TDATA->column.lock())
-            COL->setColumnWidth(fullscreenColumnWidth());
+        if (const auto TDATA = dataFor(TARGET))
+            syncWidth(TARGET, TDATA->column.lock());
 
         ++it;
     }
@@ -960,17 +962,15 @@ void CScrollingAlgorithm::syncFullscreenTargets() {
 
     for (const auto& COL : m_scrollingData->columns) {
         for (const auto& TDATA : COL->targetDatas) {
-            const auto            TARGET               = TDATA->target.lock();
-            const eFullscreenMode targetFullscreenMode = TARGET->fullscreenMode();
-            if (!TARGET || !TARGET->layoutManagedFullscreen() || targetFullscreenMode != FSMODE_FULLSCREEN || targetFullscreenMode != FSMODE_MAXIMIZED ||
-                TARGET->space() != m_parent->space())
+            const auto TARGET = TDATA->target.lock();
+            if (!shouldTrack(TARGET))
                 continue;
 
-            if (!fullscreenStateForTarget(TARGET, targetFullscreenMode))
-                (targetFullscreenMode == FSMODE_FULLSCREEN ? m_fullscreenTargets : m_maximizeTargets)
-                    .emplace_back(SFullscreenScrollState{.target = TARGET, .restoreColumnWidth = COL ? std::optional<float>{COL->getColumnWidth()} : std::nullopt});
+            if (!fullscreenStateForTarget(TARGET))
+                m_fullscreenTargets.emplace_back(
+                    SFullscreenScrollState{.target = TARGET, .restoreColumnWidth = COL ? std::optional<float>{COL->getColumnWidth()} : std::nullopt});
 
-            COL->setColumnWidth((targetFullscreenMode == FSMODE_FULLSCREEN ? fullscreenColumnWidth() : 1.F));
+            syncWidth(TARGET, COL);
         }
     }
 }
@@ -1011,34 +1011,53 @@ eFullscreenRequestResult CScrollingAlgorithm::requestFullscreen(const SFullscree
     if (!TDATA)
         return FULLSCREEN_REQUEST_DEFAULT;
 
-    if (request.effectiveMode == FSMODE_FULLSCREEN) {
-        const auto CURRENT_COL = TDATA->column.lock();
-
-        if (!fullscreenStateForTarget(request.target, FSMODE_FULLSCREEN)) {
+    auto saveCurrentWidthState = [&]() {
+        if (!fullscreenStateForTarget(request.target)) {
+            const auto COL = TDATA->column.lock();
             m_fullscreenTargets.emplace_back(
-                SFullscreenScrollState{.target = request.target, .restoreColumnWidth = CURRENT_COL ? std::optional<float>{CURRENT_COL->getColumnWidth()} : std::nullopt});
+                SFullscreenScrollState{.target = request.target, .restoreColumnWidth = COL ? std::optional<float>{COL->getColumnWidth()} : std::nullopt});
+        }
+    };
+
+    if (request.effectiveMode == FSMODE_FULLSCREEN) {
+        saveCurrentWidthState();
+
+        if (const auto COL = TDATA->column.lock()) {
+            COL->setColumnWidth(fullscreenColumnWidth());
+            m_scrollingData->centerOrFitCol(COL);
         }
 
-        // more that one window in column
-        if (CURRENT_COL->targetDatas.size() > 1) {
-            const auto lastTarget = CURRENT_COL->targetDatas.back();
-            const auto currentIdx = m_scrollingData->idx(CURRENT_COL);
-            const auto NEXT_COL   = m_scrollingData->next(CURRENT_COL);
-            const auto insertIdx  = !NEXT_COL ? std::nullopt : std::optional<int64_t>{currentIdx};
+        request.target->setFullscreenMode(FSMODE_FULLSCREEN);
 
-            expelTarget(lastTarget, CURRENT_COL, insertIdx);
+        return FULLSCREEN_REQUEST_HANDLED_BY_LAYOUT;
+    } else if (request.effectiveMode == FSMODE_MAXIMIZED) {
+        saveCurrentWidthState();
 
-            // get new column data after expelling target
-            const auto NEW_COLUMN = TDATA->column;
-
+        if (const auto COL = TDATA->column.lock()) {
+            COL->setColumnWidth(1.F);
+            m_scrollingData->centerOrFitCol(COL);
+        }
 
         request.target->setFullscreenMode(FSMODE_MAXIMIZED);
-
         return FULLSCREEN_REQUEST_HANDLED_BY_LAYOUT;
     }
 
-    if (isFullscreenTarget(TDATA) || request.target->layoutManagedFullscreen()) {
-        clearFullscreenTarget((request.target->fullscreenMode() == FSMODE_MAXIMIZED ? m_maximizeTargets : m_fullscreenTargets), request.target);
+    if (isFullscreenTarget(TDATA) || request.target->fullscreenMode() == FSMODE_MAXIMIZED || request.target->layoutManagedFullscreen()) {
+        float originalWidth = defaultColumnWidth();
+        auto  it            = std::ranges::find_if(m_fullscreenTargets, [&](const auto& state) { return state.target == request.target; });
+
+        if (it != m_fullscreenTargets.end()) {
+            if (it->restoreColumnWidth.has_value()) {
+                originalWidth = it->restoreColumnWidth.value();
+            }
+        }
+
+        clearFullscreenTarget(request.target);
+
+        if (const auto COL = TDATA->column.lock()) {
+            COL->setColumnWidth(originalWidth);
+            m_scrollingData->centerOrFitCol(COL);
+        }
         request.target->setFullscreenMode(FSMODE_NONE);
         return request.effectiveMode == FSMODE_NONE ? FULLSCREEN_REQUEST_HANDLED_BY_LAYOUT : FULLSCREEN_REQUEST_DEFAULT;
     }
