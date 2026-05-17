@@ -25,10 +25,10 @@ using namespace Hyprutils::Utils;
 using namespace Layout;
 using namespace Layout::Tiled;
 
-constexpr float MIN_COLUMN_WIDTH = 0.05F;
-constexpr float MAX_COLUMN_WIDTH = 1.F;
-constexpr float MIN_ROW_HEIGHT   = 0.1F;
-constexpr float MAX_ROW_HEIGHT   = 1.F;
+constexpr float         MIN_COLUMN_WIDTH = 0.05F;
+constexpr float         MAX_COLUMN_WIDTH = 1.F;
+constexpr float         MIN_ROW_HEIGHT   = 0.1F;
+constexpr float         MAX_ROW_HEIGHT   = 1.F;
 
 static eScrollDirection parseDirectionFromString(const std::string& dir) {
     if (dir == "left")
@@ -330,8 +330,8 @@ void SScrollingData::centerOrFitCol(SP<SColumnData> c, bool forceFit) {
     static const auto PFSONONE   = CConfigValue<Config::INTEGER>("scrolling:fullscreen_on_one_column");
     static const auto PFITMETHOD = CConfigValue<Config::INTEGER>("scrolling:focus_fit_method");
 
-    const auto USABLE = algorithm->usableArea();
-    int64_t    colIdx = idx(c);
+    const auto        USABLE = algorithm->usableArea();
+    int64_t           colIdx = idx(c);
 
     if (colIdx < 0)
         return;
@@ -560,12 +560,11 @@ void CScrollingAlgorithm::focusOnInput(SP<ITarget> target, eInputMode input) {
 
         const auto   IS_HORIZ = m_scrollingData->controller->isPrimaryHorizontal();
 
-        const auto   MON_BOX     = m_parent->space()->workspace()->m_monitor->logicalBox();
-        const auto   TARGET_BOX  = target->position();
-        const double VISIBLE_LEN = std::abs(
-            std::min(IS_HORIZ ? MON_BOX.x + MON_BOX.w : MON_BOX.y + MON_BOX.h,
-                     IS_HORIZ ? TARGET_BOX.x + TARGET_BOX.w : TARGET_BOX.y + TARGET_BOX.h) -
-            std::max(IS_HORIZ ? MON_BOX.x : MON_BOX.y, IS_HORIZ ? TARGET_BOX.x : TARGET_BOX.y));
+        const auto   MON_BOX    = m_parent->space()->workspace()->m_monitor->logicalBox();
+        const auto   TARGET_BOX = target->position();
+        const double VISIBLE_LEN =
+            std::abs(std::min(IS_HORIZ ? MON_BOX.x + MON_BOX.w : MON_BOX.y + MON_BOX.h, IS_HORIZ ? TARGET_BOX.x + TARGET_BOX.w : TARGET_BOX.y + TARGET_BOX.h) -
+                     std::max(IS_HORIZ ? MON_BOX.x : MON_BOX.y, IS_HORIZ ? TARGET_BOX.x : TARGET_BOX.y));
 
         // if the amount of visible X is below minimum, reject
         if (VISIBLE_LEN < (IS_HORIZ ? MON_BOX.w : MON_BOX.h) * std::clamp(*PFOLLOW_FOCUS_MIN_PERC, 0.F, 1.F))
@@ -800,10 +799,7 @@ void CScrollingAlgorithm::recalculate(eRecalculateReason reason) {
 }
 
 void CScrollingAlgorithm::syncFullscreenTargets() {
-    auto shouldTrack = [&](SP<ITarget> t) {
-        return t && t->space() == m_parent->space() &&
-               (t->fullscreenMode() == FSMODE_FULLSCREEN || t->fullscreenMode() == FSMODE_MAXIMIZED);
-    };
+    auto shouldTrack = [&](SP<ITarget> t) { return t && t->space() == m_parent->space() && (t->fullscreenMode() == FSMODE_FULLSCREEN || t->fullscreenMode() == FSMODE_MAXIMIZED); };
 
     auto syncWidth = [&](SP<ITarget> t, SP<SColumnData> col) {
         if (!col)
@@ -832,8 +828,7 @@ void CScrollingAlgorithm::syncFullscreenTargets() {
                 continue;
 
             if (!fullscreenStateForTarget(TARGET))
-                m_fullscreenTargets.emplace_back(
-                    SFullscreenScrollState{.target = TARGET, .restoreColumnWidth = COL ? std::optional<float>{COL->getColumnWidth()} : std::nullopt});
+                m_fullscreenTargets.emplace_back(SFullscreenScrollState{.target = TARGET, .restoreColumnWidth = COL ? std::optional<float>{COL->getColumnWidth()} : std::nullopt});
 
             syncWidth(TARGET, COL);
         }
@@ -1137,8 +1132,8 @@ void CScrollingAlgorithm::moveTargetTo(SP<ITarget> t, Math::eDirection dir, bool
     if (!DATA)
         return;
 
-    const auto CURRENT_COL = DATA->column.lock();
-    const auto current_idx = m_scrollingData->idx(CURRENT_COL);
+    const auto                        CURRENT_COL = DATA->column.lock();
+    const auto                        current_idx = m_scrollingData->idx(CURRENT_COL);
 
     static constexpr Math::eDirection ROTATE_LUT[4][4] = {
         // SCROLL_DIR_RIGHT
@@ -1153,7 +1148,7 @@ void CScrollingAlgorithm::moveTargetTo(SP<ITarget> t, Math::eDirection dir, bool
 
     const auto ROTATED_DIR = ROTATE_LUT[m_scrollingData->controller->getDirection()][dir];
 
-    auto moveToAdjacentCol = [&](SP<SColumnData> neighborCol, bool isLeft, int64_t edgeIdx) -> bool {
+    auto       moveToAdjacentCol = [&](SP<SColumnData> neighborCol, bool isLeft, int64_t edgeIdx) -> bool {
         if (!neighborCol && current_idx == edgeIdx && DATA->column->targetDatas.size() == 1)
             return false;
 
@@ -1213,7 +1208,7 @@ Config::ErrorResult CScrollingAlgorithm::layoutMsg(const std::string_view& sv) {
     const auto notFound   = [](std::string msg) { return Config::configError(std::move(msg), Config::eConfigErrorLevel::WARNING, Config::eConfigErrorCode::NOT_FOUND); };
     const auto stateErr   = [](std::string msg) { return Config::configError(std::move(msg), Config::eConfigErrorLevel::WARNING, Config::eConfigErrorCode::INVALID_STATE); };
 
-    auto focusedTargetData = [this]() -> SP<SScrollingTargetData> {
+    auto       focusedTargetData = [this]() -> SP<SScrollingTargetData> {
         auto w = Desktop::focusState()->window();
         return w ? dataFor(w->layoutTarget()) : nullptr;
     };
@@ -1491,8 +1486,7 @@ Config::ErrorResult CScrollingAlgorithm::layoutMsg(const std::string_view& sv) {
                     return {};
                 }
                 auto& cols = m_scrollingData->columns;
-                adjCol = isPrevStrip ? ((*PCONFWRAPFOCUS == 1) ? cols.back() : cols.front())
-                                     : ((*PCONFWRAPFOCUS == 1) ? cols.front() : cols.back());
+                adjCol     = isPrevStrip ? ((*PCONFWRAPFOCUS == 1) ? cols.back() : cols.front()) : ((*PCONFWRAPFOCUS == 1) ? cols.front() : cols.back());
             }
 
             auto pTargetData = findBestNeighbor(TDATA, adjCol);
@@ -1597,9 +1591,8 @@ Config::ErrorResult CScrollingAlgorithm::layoutMsg(const std::string_view& sv) {
         else
             return invalidArg("no target (invalid direction?)");
 
-        int64_t rawIdx = currentIdx + delta;
-        int64_t targetIdx =
-            *PCONFWRAPSWAPCOL == 1 ? (rawIdx + colCount) % (int64_t)colCount : std::clamp<int64_t>(rawIdx, 0, colCount - 1);
+        int64_t rawIdx    = currentIdx + delta;
+        int64_t targetIdx = *PCONFWRAPSWAPCOL == 1 ? (rawIdx + colCount) % (int64_t)colCount : std::clamp<int64_t>(rawIdx, 0, colCount - 1);
 
         std::swap(m_scrollingData->columns.at(currentIdx), m_scrollingData->columns.at(targetIdx));
         m_scrollingData->controller->swapStrips(currentIdx, targetIdx);
@@ -1620,8 +1613,7 @@ Config::ErrorResult CScrollingAlgorithm::layoutMsg(const std::string_view& sv) {
         if (ARGS.size() > 2)
             return invalidArg("too many args");
 
-        bool shouldInhibit = ARGS.size() == 1 ? !m_scrollingData->controller->getScrollInhibitor().isInhibited
-                                              : ARGS[1] != "0" && ARGS[1] != "false";
+        bool shouldInhibit = ARGS.size() == 1 ? !m_scrollingData->controller->getScrollInhibitor().isInhibited : ARGS[1] != "0" && ARGS[1] != "false";
         shouldInhibit ? inhibitScroll() : uninhibitScroll();
 
     } else
@@ -1676,11 +1668,9 @@ SP<SColumnData> CScrollingAlgorithm::snapToProjectedOffset(double projectedNorma
     size_t       bestIndex       = 0;
     bool         foundSnap       = false;
 
-    auto centerOffsetFor = [&](double start, double size) {
-        return start - (usablePrimary - size) / 2.0;
-    };
+    auto         centerOffsetFor = [&](double start, double size) { return start - (usablePrimary - size) / 2.0; };
 
-    auto fitOffsetFor = [&](double start, double size) {
+    auto         fitOffsetFor = [&](double start, double size) {
         const double lo = start - usablePrimary + size;
         const double hi = start;
 
@@ -1694,11 +1684,11 @@ SP<SColumnData> CScrollingAlgorithm::snapToProjectedOffset(double projectedNorma
     };
 
     auto considerColumn = [&](size_t index) {
-        const double start = controller.calculateStripStart(index, USABLE, *PFSONONE);
-        const double size  = controller.calculateStripSize(index, USABLE, *PFSONONE);
-        const double offset = *PFITMETHOD == 1 ? fitOffsetFor(start, size) : centerOffsetFor(start, size);
-        const double delta  = std::abs(offset - projectedOffset);
-        const double centerDelta = std::abs((start + size / 2.0) - (projectedOffset + usablePrimary / 2.0));
+        const double start          = controller.calculateStripStart(index, USABLE, *PFSONONE);
+        const double size           = controller.calculateStripSize(index, USABLE, *PFSONONE);
+        const double offset         = *PFITMETHOD == 1 ? fitOffsetFor(start, size) : centerOffsetFor(start, size);
+        const double delta          = std::abs(offset - projectedOffset);
+        const double centerDelta    = std::abs((start + size / 2.0) - (projectedOffset + usablePrimary / 2.0));
         const bool   betterFit      = delta < bestDelta;
         const bool   betterTieBreak = delta == bestDelta && centerDelta < bestCenterDelta;
 
