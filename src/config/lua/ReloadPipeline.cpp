@@ -45,7 +45,7 @@ void CReloadPipeline::phaseEnter(SReloadContext& ctx) {
     m_mgr->m_errors.clear();
 
     if (ctx.scope == eReloadScope::FULL) {
-        auto mainName = std::filesystem::path(ctx.filePath).filename();
+        auto mainName = std::filesystem::path(ctx.filePath).filename().string();
         Log::logger->log(Log::LUA, "[{}@{}]: full reload starting", mainName, ctx.newGen);
         m_mgr->logStateBeforeReload(ctx.filePath, ctx.newGen);
     }

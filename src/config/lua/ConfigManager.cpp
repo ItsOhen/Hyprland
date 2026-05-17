@@ -387,7 +387,8 @@ void CConfigManager::init() {
             reloadModule(e.file, visited);
             postConfigReload();
         } else {
-            Log::logger->log(Log::LUA, "[{}@{}]: not tracked, full reload", std::filesystem::path(e.file).filename(), m_reloadGeneration);
+            auto fileName = std::filesystem::path(e.file).filename().string();
+            Log::logger->log(Log::LUA, std::vformat("[{}@{}]: not tracked, full reload", std::make_format_args(fileName, m_reloadGeneration)));
             reload();
         }
     });
@@ -436,7 +437,7 @@ uint64_t CConfigManager::advanceFileGeneration(const std::string& filePath) {
 }
 
 void CConfigManager::logStateBeforeReload(const std::string& filePath, uint64_t gen) {
-    auto   fileName  = std::filesystem::path(filePath).filename();
+    auto   fileName  = std::filesystem::path(filePath).filename().string();
     size_t eventSubs = m_eventHandler ? m_eventHandler->subscriptionCount() : 0;
     size_t luaBinds  = 0;
     if (g_pKeybindManager) {
@@ -451,7 +452,7 @@ void CConfigManager::logStateBeforeReload(const std::string& filePath, uint64_t 
 }
 
 void CConfigManager::logStateAfterReload(const std::string& filePath, uint64_t gen) {
-    auto   fileName  = std::filesystem::path(filePath).filename();
+    auto   fileName  = std::filesystem::path(filePath).filename().string();
     size_t eventSubs = m_eventHandler ? m_eventHandler->subscriptionCount() : 0;
     size_t luaBinds  = 0;
     if (g_pKeybindManager) {
@@ -485,7 +486,7 @@ void CConfigManager::reloadModule(const std::string& filePath, std::unordered_se
 
     if (filePath == m_mainConfigPath) {
         if (!m_lua) {
-            Log::logger->log(Log::LUA, "[{}@{}]: lua state null, full reload fallback", std::filesystem::path(filePath).filename(), m_reloadGeneration);
+            Log::logger->log(Log::LUA, "[{}@{}]: lua state null, full reload fallback", std::filesystem::path(filePath).filename().string(), m_reloadGeneration);
             reload();
             return;
         }
@@ -501,18 +502,18 @@ void CConfigManager::reloadModule(const std::string& filePath, std::unordered_se
 
     auto moduleName = m_dependencyGraph->moduleNameForPath(filePath);
     if (moduleName.empty()) {
-        Log::logger->log(Log::LUA, "[{}@{}]: not tracked, full reload", std::filesystem::path(filePath).filename(), m_reloadGeneration);
+        Log::logger->log(Log::LUA, "[{}@{}]: not tracked, full reload", std::filesystem::path(filePath).filename().string(), m_reloadGeneration);
         reload();
         return;
     }
 
     if (!m_lua) {
-        Log::logger->log(Log::LUA, "[{}@{}]: lua state null, full reload fallback", std::filesystem::path(filePath).filename(), m_reloadGeneration);
+        Log::logger->log(Log::LUA, "[{}@{}]: lua state null, full reload fallback", std::filesystem::path(filePath).filename().string(), m_reloadGeneration);
         reload();
         return;
     }
 
-    auto fileName = std::filesystem::path(filePath).filename();
+    auto fileName = std::filesystem::path(filePath).filename().string();
     Log::logger->log(Log::LUA, "[{}@{}]: reload (was gen {})", fileName, m_fileGenerations.contains(filePath) ? m_fileGenerations[filePath] + 1 : 1,
                      m_fileGenerations.contains(filePath) ? m_fileGenerations[filePath] : 0);
 
