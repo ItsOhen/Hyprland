@@ -13,6 +13,7 @@
 #include "../../../../managers/input/InputManager.hpp"
 #include "../../../../managers/animation/DesktopAnimationManager.hpp"
 #include "../../../../event/EventBus.hpp"
+#include "desktop/Workspace.hpp"
 
 #include <hyprutils/string/VarList2.hpp>
 #include <hyprutils/string/VarList.hpp>
@@ -1030,49 +1031,7 @@ eFullscreenRequestResult CScrollingAlgorithm::requestFullscreen(const SFullscree
             // get new column data after expelling target
             const auto NEW_COLUMN = TDATA->column;
 
-            NEW_COLUMN->setColumnWidth(fullscreenColumnWidth());
-            // move new column into view
-            m_scrollingData->centerOrFitCol(NEW_COLUMN.lock());
-        } else {
-            CURRENT_COL->setColumnWidth(fullscreenColumnWidth());
-            // move it into view
-            m_scrollingData->centerOrFitCol(CURRENT_COL);
-        }
 
-        request.target->setFullscreenMode(FSMODE_FULLSCREEN);
-
-        return FULLSCREEN_REQUEST_HANDLED_BY_LAYOUT;
-    } else if (request.effectiveMode == FSMODE_MAXIMIZED) {
-
-        const auto CURRENT_COL = TDATA->column.lock();
-
-        if (!fullscreenStateForTarget(request.target, FSMODE_MAXIMIZED)) {
-            m_maximizeTargets.emplace_back(
-                SFullscreenScrollState{.target = request.target, .restoreColumnWidth = CURRENT_COL ? std::optional<float>{CURRENT_COL->getColumnWidth()} : std::nullopt});
-        }
-
-        // more that one window in column
-        if (CURRENT_COL->targetDatas.size() > 1) {
-            const auto lastTarget = CURRENT_COL->targetDatas.back();
-            const auto currentIdx = m_scrollingData->idx(CURRENT_COL);
-            const auto NEXT_COL   = m_scrollingData->next(CURRENT_COL);
-            const auto insertIdx  = !NEXT_COL ? std::nullopt : std::optional<int64_t>{currentIdx};
-
-            expelTarget(lastTarget, CURRENT_COL, insertIdx);
-
-            // get new column data after expelling target
-            auto NEW_COLUMN = TDATA->column;
-
-            NEW_COLUMN->setColumnWidth(1.F);
-            // move new column into view
-            m_scrollingData->centerOrFitCol(NEW_COLUMN.lock());
-        } else {
-            CURRENT_COL->setColumnWidth(1.F);
-            // move it into view
-            m_scrollingData->centerOrFitCol(CURRENT_COL);
-        }
-
-        // set FS mode
         request.target->setFullscreenMode(FSMODE_MAXIMIZED);
 
         return FULLSCREEN_REQUEST_HANDLED_BY_LAYOUT;

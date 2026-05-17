@@ -186,9 +186,7 @@ CConfigManager::SDeviceConfig::SDeviceConfig() {
 }
 
 CConfigManager::CConfigManager() :
-    m_mainConfigPath(Supplementary::Jeremy::getMainConfigPath()->path),
-    m_dependencyGraph(makeUnique<CDependencyGraph>()),
-    m_reloadPipeline(makeUnique<CReloadPipeline>(this)) {
+    m_mainConfigPath(Supplementary::Jeremy::getMainConfigPath()->path), m_dependencyGraph(makeUnique<CDependencyGraph>()), m_reloadPipeline(makeUnique<CReloadPipeline>(this)) {
     ;
 }
 
@@ -430,40 +428,40 @@ void CConfigManager::pushLuaTracebackHandler() {
 }
 
 uint64_t CConfigManager::advanceFileGeneration(const std::string& filePath) {
-    auto oldGen = m_fileGenerations.contains(filePath) ? m_fileGenerations[filePath] : 0;
-    auto newGen = oldGen + 1;
-    m_reloadGeneration  = newGen;
+    auto oldGen                 = m_fileGenerations.contains(filePath) ? m_fileGenerations[filePath] : 0;
+    auto newGen                 = oldGen + 1;
+    m_reloadGeneration          = newGen;
     m_fileGenerations[filePath] = newGen;
     return newGen;
 }
 
 void CConfigManager::logStateBeforeReload(const std::string& filePath, uint64_t gen) {
-    auto        fileName = std::filesystem::path(filePath).filename();
-    size_t      eventSubs = m_eventHandler ? m_eventHandler->subscriptionCount() : 0;
-    size_t      luaBinds  = 0;
+    auto   fileName  = std::filesystem::path(filePath).filename();
+    size_t eventSubs = m_eventHandler ? m_eventHandler->subscriptionCount() : 0;
+    size_t luaBinds  = 0;
     if (g_pKeybindManager) {
         for (const auto& kb : g_pKeybindManager->m_keybinds) {
             if (kb->handler == "__lua")
                 luaBinds++;
         }
     }
-    Log::logger->log(Log::LUA, "[{}@{}]: state before: timers={} layouts={} win_rules={} lay_rules={} devices={} plugins={} refs={} events={} keybinds={} gestures={}",
-                     fileName, gen, m_luaTimers.size(), m_luaLayoutProviders.size(), m_luaWindowRules.size(), m_luaLayerRules.size(), m_deviceConfigs.size(),
-                     m_registeredPlugins.size(), m_heldLuaRefs.size(), eventSubs, luaBinds, g_pTrackpadGestures->gestureCount());
+    Log::logger->log(Log::LUA, "[{}@{}]: state before: timers={} layouts={} win_rules={} lay_rules={} devices={} plugins={} refs={} events={} keybinds={} gestures={}", fileName,
+                     gen, m_luaTimers.size(), m_luaLayoutProviders.size(), m_luaWindowRules.size(), m_luaLayerRules.size(), m_deviceConfigs.size(), m_registeredPlugins.size(),
+                     m_heldLuaRefs.size(), eventSubs, luaBinds, g_pTrackpadGestures->gestureCount());
 }
 
 void CConfigManager::logStateAfterReload(const std::string& filePath, uint64_t gen) {
-    auto        fileName = std::filesystem::path(filePath).filename();
-    size_t      eventSubs = m_eventHandler ? m_eventHandler->subscriptionCount() : 0;
-    size_t      luaBinds  = 0;
+    auto   fileName  = std::filesystem::path(filePath).filename();
+    size_t eventSubs = m_eventHandler ? m_eventHandler->subscriptionCount() : 0;
+    size_t luaBinds  = 0;
     if (g_pKeybindManager) {
         for (const auto& kb : g_pKeybindManager->m_keybinds) {
             if (kb->handler == "__lua")
                 luaBinds++;
         }
     }
-    Log::logger->log(Log::LUA, "[{}@{}]: state after: timers={} layouts={} win_rules={} lay_rules={} devices={} plugins={} refs={} events={} keybinds={} gestures={}", fileName, gen,
-                     m_luaTimers.size(), m_luaLayoutProviders.size(), m_luaWindowRules.size(), m_luaLayerRules.size(), m_deviceConfigs.size(), m_registeredPlugins.size(),
+    Log::logger->log(Log::LUA, "[{}@{}]: state after: timers={} layouts={} win_rules={} lay_rules={} devices={} plugins={} refs={} events={} keybinds={} gestures={}", fileName,
+                     gen, m_luaTimers.size(), m_luaLayoutProviders.size(), m_luaWindowRules.size(), m_luaLayerRules.size(), m_deviceConfigs.size(), m_registeredPlugins.size(),
                      m_heldLuaRefs.size(), eventSubs, luaBinds, g_pTrackpadGestures->gestureCount());
 }
 
@@ -478,7 +476,7 @@ void CConfigManager::reload() {
 
     m_mainConfigPath = Supplementary::Jeremy::getMainConfigPath()->path;
 
-    SReloadContext ctx{EReloadScope::FULL, m_mainConfigPath};
+    SReloadContext ctx{eReloadScope::FULL, m_mainConfigPath};
     m_reloadPipeline->execute(ctx);
 }
 
@@ -495,7 +493,7 @@ void CConfigManager::reloadModule(const std::string& filePath, std::unordered_se
         m_isParsingConfig = true;
         Hyprutils::Utils::CScopeGuard x([this] { m_isParsingConfig = false; });
 
-        SReloadContext ctx{EReloadScope::MODULE, filePath};
+        SReloadContext                ctx{eReloadScope::MODULE, filePath};
         ctx.visited = &visited;
         m_reloadPipeline->execute(ctx);
         return;
@@ -523,7 +521,7 @@ void CConfigManager::reloadModule(const std::string& filePath, std::unordered_se
 
     logStateBeforeReload(filePath, m_fileGenerations.contains(filePath) ? m_fileGenerations[filePath] : 0);
 
-    SReloadContext ctx{EReloadScope::MODULE, filePath};
+    SReloadContext ctx{eReloadScope::MODULE, filePath};
     ctx.moduleName = moduleName;
     ctx.visited    = &visited;
     m_reloadPipeline->execute(ctx);
@@ -532,7 +530,7 @@ void CConfigManager::reloadModule(const std::string& filePath, std::unordered_se
 void CConfigManager::sweepStaleRegistrations() {
     size_t totalStale = 0;
 
-    auto getFileGen = [&](const std::string& path) -> uint64_t {
+    auto   getFileGen = [&](const std::string& path) -> uint64_t {
         auto it = m_fileGenerations.find(path);
         return it != m_fileGenerations.end() ? it->second : 0;
     };
@@ -707,8 +705,7 @@ void CConfigManager::sweepStaleRegistrations() {
             for (const auto& nt : m_luaGestures) {
                 if (isStale(nt.generation, nt.sourcePath))
                     continue;
-                if (nt.fingerCount == it->fingerCount && nt.direction == it->direction &&
-                    nt.modMask == it->modMask && nt.deltaScale == it->deltaScale &&
+                if (nt.fingerCount == it->fingerCount && nt.direction == it->direction && nt.modMask == it->modMask && nt.deltaScale == it->deltaScale &&
                     nt.disableInhibit == it->disableInhibit) {
                     covered = true;
                     break;

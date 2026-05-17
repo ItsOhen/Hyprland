@@ -131,16 +131,16 @@ namespace Config::Lua {
             std::string sourcePath = "";
         };
 
-        std::string currentLuaSourcePath() const;
-        void        setCurrentLuaSourcePath(const std::string& path);
-        uint64_t    currentGeneration() const;
-        void        recordDependency(const std::string& requiredPath, const std::string& dependentPath);
-        std::string moduleNameToPath(const std::string& name) const;
+        std::string                      currentLuaSourcePath() const;
+        void                             setCurrentLuaSourcePath(const std::string& path);
+        uint64_t                         currentGeneration() const;
+        void                             recordDependency(const std::string& requiredPath, const std::string& dependentPath);
+        std::string                      moduleNameToPath(const std::string& name) const;
 
-        void        pushLuaTracebackHandler();
-        uint64_t    advanceFileGeneration(const std::string& filePath);
-        void        logStateBeforeReload(const std::string& filePath, uint64_t gen);
-        void        logStateAfterReload(const std::string& filePath, uint64_t gen);
+        void                             pushLuaTracebackHandler();
+        uint64_t                         advanceFileGeneration(const std::string& filePath);
+        void                             logStateBeforeReload(const std::string& filePath, uint64_t gen);
+        void                             logStateAfterReload(const std::string& filePath, uint64_t gen);
 
         std::map<int, SRegistrationMeta> m_luaKeybindRefGen;
 
@@ -234,9 +234,9 @@ namespace Config::Lua {
         std::vector<SRegistrationMeta>               m_heldLuaRefGen;
         std::vector<SP<Layouts::SLuaLayoutProvider>> m_luaLayoutProviders;
 
-        UP<CDependencyGraph>                                             m_dependencyGraph;
-        UP<CReloadPipeline>                                              m_reloadPipeline;
-        std::unordered_map<std::string, uint64_t>                        m_fileGenerations;
+        UP<CDependencyGraph>                         m_dependencyGraph;
+        UP<CReloadPipeline>                          m_reloadPipeline;
+        std::unordered_map<std::string, uint64_t>    m_fileGenerations;
 
         // this is here for legacy reasons.
         std::unordered_map<std::string, const void*> m_configPtrMap;
