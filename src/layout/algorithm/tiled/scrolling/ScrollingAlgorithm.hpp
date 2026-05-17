@@ -54,12 +54,15 @@ namespace Layout::Tiled {
         WP<SColumnData>                       self;
 
         // Helper methods to access controller-managed data
-        float getColumnWidth() const;
-        void  setColumnWidth(float width);
-        float getTargetSize(size_t idx) const;
-        void  setTargetSize(size_t idx, float size);
-        float getTargetSize(SP<SScrollingTargetData> target) const;
-        void  setTargetSize(SP<SScrollingTargetData> target, float size);
+        float       getColumnWidth() const;
+        void        setColumnWidth(float width);
+        float       getTargetSize(size_t idx) const;
+        void        setTargetSize(size_t idx, float size);
+        float       getTargetSize(SP<SScrollingTargetData> target) const;
+        void        setTargetSize(SP<SScrollingTargetData> target, float size);
+
+        SStripData* resolveStrip() const;
+        float       renormalizeForNewTarget();
     };
 
     struct SScrollingData {
@@ -81,7 +84,7 @@ namespace Layout::Tiled {
         bool                         visible(SP<SColumnData> c, bool full = false);
         void                         centerCol(SP<SColumnData> c);
         void                         fitCol(SP<SColumnData> c);
-        void                         centerOrFitCol(SP<SColumnData> c);
+        void                         centerOrFitCol(SP<SColumnData> c, bool forceFit = false);
 
         void                         recalculate(bool forceInstant = false);
 
@@ -156,8 +159,9 @@ namespace Layout::Tiled {
         };
 
         void                                syncFullscreenTargets();
-        SFullscreenScrollState*             fullscreenStateForTarget(SP<ITarget> target, eFullscreenMode targetFullscreenMode);
-        SFullscreenScrollState*             fullscreenStateForData(SP<SScrollingTargetData> target, eFullscreenMode targetFullscreenMode);
+        SFullscreenScrollState*             fullscreenStateForTarget(SP<ITarget> target);
+        SFullscreenScrollState*             fullscreenStateForData(SP<SScrollingTargetData> target);
+        SP<SScrollingTargetData>            findFullscreenTargetData(bool requireCovers) const;
         SP<SScrollingTargetData>            fullscreenTargetDataForColumn(SP<SColumnData> col) const;
         bool                                isFullscreenTarget(SP<SScrollingTargetData> target) const;
         float                               fullscreenColumnWidth() const;
