@@ -1,143 +1,126 @@
-<div align = center>
+## Hyprland (`thefunbranch`)
 
-<img src="https://raw.githubusercontent.com/hyprwm/Hyprland/main/assets/header.svg" width="750" height="300" alt="banner">
+Based on upstream [Hyprland](https://github.com/hyprwm/Hyprland) (BSD-3-Clause).
 
-<br>
+### Persistent Lua State
 
-[![Badge Workflow]][Workflow]
-[![Badge License]][License] 
-![Badge Language] 
-[![Badge Pull Requests]][Pull Requests] 
-[![Badge Issues]][Issues] 
-![Badge Hi Mom]<br>
+Module-scoped locals survive reloads. Useful for tracking state across re-evals:
 
-<br>
+```lua
+local rec_pid = nil
 
-Hyprland is a 100% independent, dynamic tiling Wayland compositor that doesn't sacrifice on its looks.
+function M.wfrecord(output, opts)
+    return function()
+        if rec_pid then
+            print("Already recording")
+            return
+        end
 
-It provides the latest Wayland features, is highly customizable, has all the eyecandy, the most powerful plugins,
-easy IPC, much more QoL stuff than other compositors and more...
-<br>
-<br>
+        opts = opts or {}
+        if opts.audio == nil then opts.audio = true end
 
----
+        local rec_file = (opts.dir or v.record_dir) .. "/" .. os.date("%d-%m-%y_%H-%M-%S") .. ".mp4"
+        local cmd      = string.format("gpu-screen-recorder -w %s -o '%s'", output, rec_file)
+        local pid      = hl.exec_raw(cmd)
 
-**[<kbd> <br> Install <br> </kbd>][Install]** 
-**[<kbd> <br> Quick Start <br> </kbd>][Quick Start]** 
-**[<kbd> <br> Configure <br> </kbd>][Configure]** 
-**[<kbd> <br> Contribute <br> </kbd>][Contribute]**
+        if pid and pid > 0 then
+            rec_pid = pid
+            print("Recording started with PID:", rec_pid)
+        end
+    end
+end
+```
 
----
+### Hot Reload (Module-level)
 
-<br>
+Only the changed module + dependents get re-evaluated, not everything:
 
-</div>
+```lua
+-- hyprland.lua
+require("my-theme")
+require("bindings")
+```
 
-# Features
+Editing `my-theme.lua` reloads just that module and modules that depend on it.
 
-- All of the eyecandy: gradient borders, blur, animations, shadows and much more
-- A lot of customization
-- 100% independent, no wlroots, no libweston, no kwin, no mutter.
-- Custom bezier curves for the best animations
-- Powerful plugin support
-- Built-in plugin manager
-- Tearing support for better gaming performance
-- Easily expandable and readable codebase
-- Fast and active development
-- Not afraid to provide bleeding-edge features
-- Config reloaded instantly upon saving
-- Fully dynamic workspaces
-- Two built-in layouts and more available as plugins
-- Global keybinds passed to your apps of choice
-- Tiling/pseudotiling/floating/fullscreen windows
-- Special workspaces (scratchpads)
-- Window groups (tabbed mode)
-- Powerful window/monitor/layer rules
-- Socket-based IPC
-- Native IME and Input Panels Support
-- and much more...
+### Scrolling layout
 
-<br>
-<br>
+Scrolling layout has been refactored and simplified. column width toggle and maximize behavior all work properly now.
 
-<div align = center>
+### Sync/Async dispatchers
 
-# Gallery
+`hl.exec_cmd()` and `hl.exec_raw()` return a PID. `hl.async_exec_cmd()` returns a handle for waiting:
 
-<br>
+```lua
+hl.bind("SUPER + Q", function()
+  local h = hl.async_exec_cmd("echo $HOME")
+  local res = h()
+  if res and res.ok then
+    print("Home dir:", res.out)
+  end
+end)
 
-![Preview A]
+hl.bind("SUPER + W", function()
+  local h = hl.async_exec_cmd("kitty")
+  local res = h()
+  if res and res.ok then
+    print("Kitty closed. :(")
+  end
+end)
 
-<br>
+local pid = nil
+hl.bind("SUPER + E", function()
+  if pid then
+    print("Already running")
+    return
+  end
+  pid = hl.exec_raw("kitty")
+end)
+```
 
-![Preview B]
+### Printing objects
 
-<br>
+Objects like monitors, windows, and workspaces expose their fields via `pairs`:
 
-![Preview C]
+```lua
+local m = hl.get_active_monitor()
+if m then
+    for k, v in pairs(m) do
+        print(string.format("%-20s:%s", k, v))
+    end
+end
+```
 
-<br>
-<br>
+### Coroutines
 
-</div>
+Coroutines persist across reloads. Create one to run on load, yield, and resume later:
 
-# Special Thanks
+```lua
+local co = coroutine.create(function()
+    print("first run")
+    coroutine.yield()
+    print("resumed after reload")
+end)
+coroutine.resume(co)
 
-<br>
+if not _G.saved_co then
+    _G.saved_co = co
+end
 
-**[wlroots]** - *For powering Hyprland in the past*
+if _G.saved_co and coroutine.status(_G.saved_co) == "suspended" then
+    coroutine.resume(_G.saved_co)
+end
+```
 
-**[tinywl]** - *For showing how 2 do stuff*
+### Rollinglog
 
-**[Sway]** - *For showing how 2 do stuff the overkill way*
+`hyprctl rollinglog` now supports level filtering with `-l`:
 
-**[Vivarium]** - *For showing how 2 do stuff the simple way*
+```
+hyprctl rollinglog -f -l lua
+hyprctl rollinglog -f -l warn
+hyprctl rollinglog -f -l error
+hyprctl rollinglog -f -l trace
+```
 
-**[dwl]** - *For showing how 2 do stuff the hacky way*
-
-**[Wayfire]** - *For showing how 2 do some graphics stuff*
-
-
-<!----------------------------------------------------------------------------->
-
-[Configure]: https://wiki.hypr.land/Configuring/
-[Stars]: https://starchart.cc/hyprwm/Hyprland
-[Hypr]: https://github.com/hyprwm/Hypr
-
-[Pull Requests]: https://github.com/hyprwm/Hyprland/pulls
-[Issues]: https://github.com/hyprwm/Hyprland/issues
-[Todo]: https://github.com/hyprwm/Hyprland/projects?type=beta
-
-[Contribute]: https://wiki.hypr.land/Contributing-and-Debugging/
-[Install]: https://wiki.hypr.land/Getting-Started/Installation/
-[Quick Start]: https://wiki.hypr.land/Getting-Started/Master-Tutorial/
-[Workflow]: https://github.com/hyprwm/Hyprland/actions/workflows/ci.yaml
-[License]: LICENSE
-
-
-<!----------------------------------{ Thanks }--------------------------------->
-
-[Vivarium]: https://github.com/inclement/vivarium
-[WlRoots]: https://gitlab.freedesktop.org/wlroots/wlroots
-[Wayfire]: https://github.com/WayfireWM/wayfire
-[TinyWl]: https://gitlab.freedesktop.org/wlroots/wlroots/-/blob/master/tinywl/tinywl.c
-[Sway]: https://github.com/swaywm/sway
-[DWL]: https://codeberg.org/dwl/dwl
-
-<!----------------------------------{ Images }--------------------------------->
-
-[Preview A]: https://i.ibb.co/XxFY75Mk/greerggergerhtrytghjnyhjn.png
-[Preview B]: https://i.ibb.co/C1yTb0r/falf.png
-[Preview C]: https://i.ibb.co/2Yc4q835/hyprland-preview-b.png
-
-
-<!----------------------------------{ Badges }--------------------------------->
-
-[Badge Workflow]: https://github.com/hyprwm/Hyprland/actions/workflows/ci.yaml/badge.svg
-
-[Badge Issues]: https://img.shields.io/github/issues/hyprwm/Hyprland
-[Badge Pull Requests]: https://img.shields.io/github/issues-pr/hyprwm/Hyprland
-[Badge Language]: https://img.shields.io/github/languages/top/hyprwm/Hyprland
-[Badge License]: https://img.shields.io/github/license/hyprwm/Hyprland
-[Badge Lines]: https://img.shields.io/tokei/lines/github/hyprwm/Hyprland
-[Badge Hi Mom]: https://img.shields.io/badge/Hi-mom!-ff69b4
+Log output is now colored.
