@@ -123,6 +123,7 @@ class CKeybindManager {
     void                                                                         removeKeybind(const std::string& displayKeys);
     uint32_t                                                                     stringToModMask(std::string);
     uint32_t                                                                     keycodeToModifier(xkb_keycode_t);
+    static uint32_t                                                              keysymToModifier(xkb_keysym_t);
     void                                                                         clearKeybinds();
     void                                                                         shadowKeybinds(const xkb_keysym_t& doesntHave = 0, const uint32_t doesntHaveCode = 0);
     SSubmap                                                                      getCurrentSubmap();
