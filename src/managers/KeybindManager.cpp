@@ -257,6 +257,17 @@ uint32_t CKeybindManager::keycodeToModifier(xkb_keycode_t keycode) {
     }
 }
 
+uint32_t CKeybindManager::keysymToModifier(xkb_keysym_t sym) {
+    switch (sym) {
+        case XKB_KEY_Control_L:  case XKB_KEY_Control_R:  return HL_MODIFIER_CTRL;
+        case XKB_KEY_Shift_L:    case XKB_KEY_Shift_R:    return HL_MODIFIER_SHIFT;
+        case XKB_KEY_Alt_L:      case XKB_KEY_Alt_R:      return HL_MODIFIER_ALT;
+        case XKB_KEY_Super_L:    case XKB_KEY_Super_R:    return HL_MODIFIER_META;
+        case XKB_KEY_Caps_Lock:                           return HL_MODIFIER_CAPS;
+        default:                                           return 0;
+    }
+}
+
 void CKeybindManager::updateXKBTranslationState() {
     if (m_xkbTranslationState) {
         xkb_state_unref(m_xkbTranslationState);
@@ -546,13 +557,33 @@ eMultiKeyCase CKeybindManager::mkKeysymSetMatches(const std::vector<KeybindKey>&
             ++matches;
     }
 
-    if (matches == keybindKeysyms.size() && matches == pressed.size())
+    if (matches != keybindKeysyms.size()) {
+        if (matches > 0 || (pressed.empty() && !keybindKeysyms.empty()))
+            return MK_PARTIAL_MATCH;
+        return MK_NO_MATCH;
+    }
+
+    auto isModKey = [&](const KeybindKey& k) -> bool {
+        return (k.first != XKB_KEY_NoSymbol && keysymToModifier(k.first) != 0) ||
+               (k.second != 0 && keycodeToModifier(k.second) != 0);
+    };
+
+    size_t nonModPressed = 0;
+    for (const auto& k : pressedKeysyms) {
+        if (!isModKey(k))
+            nonModPressed++;
+    }
+
+    size_t nonModBound = 0;
+    for (const auto& k : keybindKeysyms) {
+        if (!isModKey(k))
+            nonModBound++;
+    }
+
+    if (nonModBound == nonModPressed)
         return MK_FULL_MATCH;
 
-    if (matches > 0 || (pressed.empty() && !keybindKeysyms.empty()))
-        return MK_PARTIAL_MATCH;
-
-    return MK_NO_MATCH;
+    return MK_PARTIAL_MATCH;
 }
 
 eMultiKeyCase CKeybindManager::mkBindMatches(const SP<SKeybind> keybind) {
@@ -581,15 +612,13 @@ SDispatchResult CKeybindManager::handleKeybinds(const uint32_t modmask, const SP
     // breaking multi-key binds (binds flag 's'). See issue #8699.
     if (key.keysym != 0) {
         if (pressed) {
+            m_mkKeys.emplace(key.keysym, key.keycode);
             if (keycodeToModifier(key.keycode))
                 m_mkMods.emplace(key.keysym, key.keycode);
-            else
-                m_mkKeys.emplace(key.keysym, key.keycode);
         } else {
-            if (keycodeToModifier(key.keycode))
-                std::erase_if(m_mkMods, [&key](const auto& e) { return e.first == key.keysym || e.second == key.keycode; });
-            else
-                std::erase_if(m_mkKeys, [&key](const auto& e) { return e.first == key.keysym || e.second == key.keycode; });
+            auto pred = [&key](const auto& e) { return e.first == key.keysym || e.second == key.keycode; };
+            std::erase_if(m_mkKeys, pred);
+            std::erase_if(m_mkMods, pred);
         }
     }
 
@@ -613,8 +642,18 @@ SDispatchResult CKeybindManager::handleKeybinds(const uint32_t modmask, const SP
         if (!k->locked && g_pSessionLockManager->isSessionLocked())
             continue;
 
-        if (!IGNORECONDITIONS && ((modmask != k->modmask && !k->ignoreMods) || (k->submap.name != Config::Actions::state()->m_currentSubmap && !k->submapUniversal) || k->shadowed))
-            continue;
+        if (!IGNORECONDITIONS && !k->ignoreMods) {
+            uint32_t coveredMods = 0;
+            for (const auto& [sym, code] : k->sMkKeys) {
+                if (auto m = keysymToModifier(sym); m != 0)
+                    coveredMods |= m;
+                else if (auto m = keycodeToModifier(code); m != 0)
+                    coveredMods |= m;
+            }
+
+            if (((modmask & ~coveredMods) != (k->modmask & ~coveredMods)) || (k->submap.name != Config::Actions::state()->m_currentSubmap && !k->submapUniversal) || k->shadowed)
+                continue;
+        }
 
         if (device) {
             bool isTagValid = false;
@@ -639,11 +678,6 @@ SDispatchResult CKeybindManager::handleKeybinds(const uint32_t modmask, const SP
             const bool HAS_MULTIPLE_KEYS = k->sMkKeys.size() > 1;
 
             if (HAS_MULTIPLE_KEYS) {
-                // check if we match fully and aren't releasing
-                // for multi-key binds, this is a requirement,
-                // but for single-key ones, this would fuck up user's expectations
-                // where SUPER + X could be blocked because you did SUPER + A and haven't released A yet.
-                // the downside? SUPER + K and SUPER + K + A will trigger two binds on SUPER + K + A
                 if (!k->release && mkKeysymSetMatches(k->sMkKeys, m_mkKeys) != MK_FULL_MATCH)
                     continue;
             }
