@@ -496,6 +496,12 @@ void CCompositor::initAllSignals() {
 
                 Config::monitorRuleMgr()->scheduleReload();
                 g_pCursorManager->syncGsettings();
+
+                g_pEventLoopManager->doLater([]() {
+                    for (auto const& k : g_pInputManager->m_keyboards) {
+                        k->updateLEDs();
+                    }
+                });
             } else {
                 Log::logger->log(Log::DEBUG, "Session got deactivated!");
 
