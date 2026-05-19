@@ -30,6 +30,7 @@ namespace Config::Actions {
     };
 
     using ActionResult = std::expected<SActionResult, SActionError>;
+    using PropValue    = std::variant<std::monostate, bool, int, float, long, std::string, Vector2D>;
 
     ActionResult closeWindow(std::optional<PHLWINDOW> window = std::nullopt /* Active */);
     ActionResult killWindow(std::optional<PHLWINDOW> window = std::nullopt /* Active */);
@@ -60,6 +61,7 @@ namespace Config::Actions {
     ActionResult swapNext(const bool next, std::optional<PHLWINDOW> window = std::nullopt /* Active */);
     ActionResult alterZOrder(const std::string& mode, std::optional<PHLWINDOW> window = std::nullopt /* Active */);
     ActionResult setProp(const std::string& prop, const std::string& val, std::optional<PHLWINDOW> window = std::nullopt /* Active */);
+    PropValue    getProp(const std::string& prop, std::optional<PHLWINDOW> window = std::nullopt /* Active */);
 
     ActionResult toggleGroup(std::optional<PHLWINDOW> window = std::nullopt /* Active */);
     ActionResult changeGroupActive(bool forward = true, std::optional<PHLWINDOW> window = std::nullopt /* Active */);

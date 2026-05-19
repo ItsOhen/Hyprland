@@ -387,6 +387,56 @@ static int hlGetCurrentSubmap(lua_State* L) {
     return 1;
 }
 
+static int hlGetProp(lua_State* L) {
+    std::string              PROP;
+    std::optional<PHLWINDOW> PWINDOW = std::nullopt;
+
+    int                      type = lua_type(L, 1);
+
+    if (type == LUA_TSTRING) {
+        PROP    = lua_tostring(L, 1);
+        PWINDOW = Desktop::focusState()->window();
+    } else if (type == LUA_TTABLE) {
+        PROP    = Internal::requireTableFieldStr(L, 1, "prop", "hl.get_prop");
+        PWINDOW = Internal::windowFromLuaSelectorOrObject(L, 1, "hl.get_prop");
+    } else {
+        return Internal::configError(L, "hl.get_prop: expected a string property name or a table configuration");
+    }
+
+    Config::Actions::PropValue result = Actions::getProp(PROP, PWINDOW);
+
+    std::visit(
+        [L](auto&& arg) {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, std::monostate>) {
+                lua_pushnil(L);
+            } else if constexpr (std::is_same_v<T, bool>) {
+                lua_pushboolean(L, arg);
+            } else if constexpr (std::is_same_v<T, int> || std::is_same_v<T, float>) {
+                lua_pushnumber(L, arg);
+            } else if constexpr (std::is_same_v<T, std::string>) {
+                lua_pushstring(L, arg.c_str());
+            } else if constexpr (std::is_same_v<T, Vector2D>) {
+                lua_newtable(L);
+
+                if (arg.x != INFINITY)
+                    lua_pushnumber(L, arg.x);
+                else
+                    lua_pushnil(L);
+                lua_rawseti(L, -2, 1);
+
+                if (arg.y != INFINITY)
+                    lua_pushnumber(L, arg.y);
+                else
+                    lua_pushnil(L);
+                lua_rawseti(L, -2, 2);
+            }
+        },
+        result);
+
+    return 1;
+}
+
 void Internal::registerQueryBindings(lua_State* L) {
     Internal::setFn(L, "get_windows", hlGetWindows);
     Internal::setFn(L, "get_window", hlGetWindow);
@@ -407,4 +457,5 @@ void Internal::registerQueryBindings(lua_State* L) {
     Internal::setFn(L, "get_last_window", hlGetLastWindow);
     Internal::setFn(L, "get_last_workspace", hlGetLastWorkspace);
     Internal::setFn(L, "get_current_submap", hlGetCurrentSubmap);
+    Internal::setFn(L, "get_prop", hlGetProp);
 }

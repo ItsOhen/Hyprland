@@ -847,6 +847,142 @@ ActionResult Actions::setProp(const std::string& PROP, const std::string& VAL, s
     return {};
 }
 
+PropValue Actions::getProp(const std::string& PROP, std::optional<PHLWINDOW> w) {
+    auto PWINDOW = xtract(w);
+    if (!PWINDOW)
+        return std::monostate{};
+
+    auto getAlphaProp = [&](auto& alpha, bool getAlpha) -> PropValue {
+        if (getAlpha)
+            return alpha.valueOrDefault().alpha; // float
+        else
+            return (bool)alpha.valueOrDefault().overridden; // bool
+    };
+
+    auto getSizeProp = [&](bool max) -> PropValue {
+        auto sizeValue = PWINDOW->m_ruleApplicator->minSize().valueOr(Vector2D(MIN_WINDOW_SIZE, MIN_WINDOW_SIZE));
+        if (max)
+            sizeValue = PWINDOW->m_ruleApplicator->maxSize().valueOr(Vector2D(INFINITY, INFINITY));
+        return sizeValue; // Vector2D
+    };
+
+    auto getTrivialProp = [&](auto& prop) -> PropValue { return prop.valueOrDefault(); };
+
+    if (PROP == "animation") {
+        return PWINDOW->m_ruleApplicator->animationStyle().valueOr("");
+    } else if (PROP == "max_size")
+        return getSizeProp(true);
+    else if (PROP == "min_size")
+        return getSizeProp(false);
+    else if (PROP == "opacity")
+        return getAlphaProp(PWINDOW->m_ruleApplicator->alpha(), true);
+    else if (PROP == "opacity_inactive")
+        return getAlphaProp(PWINDOW->m_ruleApplicator->alphaInactive(), true);
+    else if (PROP == "opacity_fullscreen")
+        return getAlphaProp(PWINDOW->m_ruleApplicator->alphaFullscreen(), true);
+    else if (PROP == "opacity_override")
+        return getAlphaProp(PWINDOW->m_ruleApplicator->alpha(), false);
+    else if (PROP == "opacity_inactive_override")
+        return getAlphaProp(PWINDOW->m_ruleApplicator->alphaInactive(), false);
+    else if (PROP == "opacity_fullscreen_override")
+        return getAlphaProp(PWINDOW->m_ruleApplicator->alphaFullscreen(), false);
+
+    else if (PROP == "active_border_color" || PROP == "inactive_border_color") {
+        static auto PACTIVECOL              = CConfigValue<Config::IComplexConfigValue>("general:col.active_border");
+        static auto PINACTIVECOL            = CConfigValue<Config::IComplexConfigValue>("general:col.inactive_border");
+        static auto PNOGROUPACTIVECOL       = CConfigValue<Config::IComplexConfigValue>("general:col.nogroup_border_active");
+        static auto PNOGROUPINACTIVECOL     = CConfigValue<Config::IComplexConfigValue>("general:col.nogroup_border");
+        static auto PGROUPACTIVECOL         = CConfigValue<Config::IComplexConfigValue>("group:col.border_active");
+        static auto PGROUPINACTIVECOL       = CConfigValue<Config::IComplexConfigValue>("group:col.border_inactive");
+        static auto PGROUPACTIVELOCKEDCOL   = CConfigValue<Config::IComplexConfigValue>("group:col.border_locked_active");
+        static auto PGROUPINACTIVELOCKEDCOL = CConfigValue<Config::IComplexConfigValue>("group:col.border_locked_inactive");
+
+        const bool  GROUPLOCKED = PWINDOW->m_group ? PWINDOW->m_group->locked() : false;
+        const bool  active      = (PROP == "active_border_color");
+
+        if (active) {
+            auto* const       ACTIVECOL            = (Config::CGradientValueData*)(PACTIVECOL.ptr());
+            auto* const       NOGROUPACTIVECOL     = (Config::CGradientValueData*)(PNOGROUPACTIVECOL.ptr());
+            auto* const       GROUPACTIVECOL       = (Config::CGradientValueData*)(PGROUPACTIVECOL.ptr());
+            auto* const       GROUPACTIVELOCKEDCOL = (Config::CGradientValueData*)(PGROUPACTIVELOCKEDCOL.ptr());
+            const auto* const ACTIVECOLOR =
+                !PWINDOW->m_group ? (!(PWINDOW->m_groupRules & Desktop::View::GROUP_DENY) ? ACTIVECOL : NOGROUPACTIVECOL) : (GROUPLOCKED ? GROUPACTIVELOCKEDCOL : GROUPACTIVECOL);
+
+            return PWINDOW->m_ruleApplicator->activeBorderColor().valueOr(*ACTIVECOLOR).toString();
+        } else {
+            auto* const       INACTIVECOL            = (Config::CGradientValueData*)(PINACTIVECOL.ptr());
+            auto* const       NOGROUPINACTIVECOL     = (Config::CGradientValueData*)(PNOGROUPINACTIVECOL.ptr());
+            auto* const       GROUPINACTIVECOL       = (Config::CGradientValueData*)(PGROUPINACTIVECOL.ptr());
+            auto* const       GROUPINACTIVELOCKEDCOL = (Config::CGradientValueData*)(PGROUPINACTIVELOCKEDCOL.ptr());
+            const auto* const INACTIVECOLOR          = !PWINDOW->m_group ? (!(PWINDOW->m_groupRules & Desktop::View::GROUP_DENY) ? INACTIVECOL : NOGROUPINACTIVECOL) :
+                                                                           (GROUPLOCKED ? GROUPINACTIVELOCKEDCOL : GROUPINACTIVECOL);
+
+            return PWINDOW->m_ruleApplicator->inactiveBorderColor().valueOr(*INACTIVECOLOR).toString();
+        }
+    } else if (PROP == "allows_input")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->allowsInput());
+    else if (PROP == "decorate")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->decorate());
+    else if (PROP == "focus_on_activate")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->focusOnActivate());
+    else if (PROP == "keep_aspect_ratio")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->keepAspectRatio());
+    else if (PROP == "nearest_neighbor")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->nearestNeighbor());
+    else if (PROP == "no_anim")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->noAnim());
+    else if (PROP == "no_blur")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->noBlur());
+    else if (PROP == "no_dim")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->noDim());
+    else if (PROP == "no_focus")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->noFocus());
+    else if (PROP == "no_max_size")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->noMaxSize());
+    else if (PROP == "no_shadow")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->noShadow());
+    else if (PROP == "no_shortcuts_inhibit")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->noShortcutsInhibit());
+    else if (PROP == "dim_around")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->dimAround());
+    else if (PROP == "opaque")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->opaque());
+    else if (PROP == "force_rgbx")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->RGBX());
+    else if (PROP == "sync_fullscreen")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->syncFullscreen());
+    else if (PROP == "immediate")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->tearing());
+    else if (PROP == "xray")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->xray());
+    else if (PROP == "render_unfocused")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->renderUnfocused());
+    else if (PROP == "no_follow_mouse")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->noFollowMouse());
+    else if (PROP == "no_screen_share")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->noScreenShare());
+    else if (PROP == "no_vrr")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->noVRR());
+    else if (PROP == "persistent_size")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->persistentSize());
+    else if (PROP == "stay_focused")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->stayFocused());
+    else if (PROP == "idle_inhibit")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->idleInhibitMode());
+    else if (PROP == "border_size")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->borderSize());
+    else if (PROP == "rounding")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->rounding());
+    else if (PROP == "rounding_power")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->roundingPower());
+    else if (PROP == "scroll_mouse")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->scrollMouse());
+    else if (PROP == "scroll_touchpad")
+        return getTrivialProp(PWINDOW->m_ruleApplicator->scrollTouchpad());
+
+    return std::monostate{};
+}
+
 ActionResult Actions::toggleGroup(std::optional<PHLWINDOW> w) {
     auto window = xtract(w);
     if (!window)
