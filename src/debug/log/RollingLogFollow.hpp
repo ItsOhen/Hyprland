@@ -42,9 +42,9 @@ namespace Log {
                 if (!m_socketLevelFilter[p.first].empty() && m_socketLevelFilter[p.first] != levelCode)
                     continue;
                 if (m_socketShowLevel[p.first] && !s.empty())
-                    m_socketToRollingLogFollowQueue[p.first] += std::format("{}\n", s);
+                    m_socketToRollingLogFollowQueue[p.first] += std::format("{}", s);
                 else
-                    m_socketToRollingLogFollowQueue[p.first] += std::format("{}\n", log);
+                    m_socketToRollingLogFollowQueue[p.first] += std::format("{}", log);
             }
         }
 
