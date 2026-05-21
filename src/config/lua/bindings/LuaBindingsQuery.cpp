@@ -398,7 +398,7 @@ static int hlGetProp(lua_State* L) {
         PWINDOW = Desktop::focusState()->window();
     } else if (type == LUA_TTABLE) {
         PROP    = Internal::requireTableFieldStr(L, 1, "prop", "hl.get_prop");
-        PWINDOW = Internal::windowFromLuaSelectorOrObject(L, 1, "hl.get_prop");
+        PWINDOW = Internal::tableOptWindow(L, 1, "window", "hl.get_prop");
     } else {
         return Internal::configError(L, "hl.get_prop: expected a string property name or a table configuration");
     }
