@@ -1089,6 +1089,9 @@ static int hlWindowRule(lua_State* L) {
         name = lua_tostring(L, -1);
     lua_pop(L, 1);
 
+    if (name.empty())
+        name = std::format("__hl_anon_{}", self->m_anonymousRuleCount++);
+
     bool enabled = true;
     lua_getfield(L, 1, "enabled");
     if (lua_isboolean(L, -1))
@@ -1096,15 +1099,13 @@ static int hlWindowRule(lua_State* L) {
     lua_pop(L, 1);
 
     SP<Desktop::Rule::CWindowRule> rule;
-    if (!name.empty() && self->m_luaWindowRules.contains(name)) {
+    if (self->m_luaWindowRules.contains(name)) {
         rule                           = self->m_luaWindowRules[name];
         self->m_luaWindowRuleGen[name] = {.generation = !self->isSweepImmune() ? self->currentGeneration() : 0, .sourcePath = self->currentLuaSourcePath()};
     } else {
         rule = makeShared<Desktop::Rule::CWindowRule>(name);
-        if (!name.empty()) {
-            self->m_luaWindowRules[name]   = rule;
-            self->m_luaWindowRuleGen[name] = {.generation = !self->isSweepImmune() ? self->currentGeneration() : 0, .sourcePath = self->currentLuaSourcePath()};
-        }
+        self->m_luaWindowRules[name]   = rule;
+        self->m_luaWindowRuleGen[name] = {.generation = !self->isSweepImmune() ? self->currentGeneration() : 0, .sourcePath = self->currentLuaSourcePath()};
         Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>(rule));
     }
     rule->setEnabled(enabled);
@@ -1202,6 +1203,9 @@ static int hlLayerRule(lua_State* L) {
         name = lua_tostring(L, -1);
     lua_pop(L, 1);
 
+    if (name.empty())
+        name = std::format("__hl_anon_layer_{}", self->m_anonymousRuleCount++);
+
     bool enabled = true;
     lua_getfield(L, 1, "enabled");
     if (lua_isboolean(L, -1))
@@ -1209,15 +1213,13 @@ static int hlLayerRule(lua_State* L) {
     lua_pop(L, 1);
 
     SP<Desktop::Rule::CLayerRule> rule;
-    if (!name.empty() && self->m_luaLayerRules.contains(name)) {
+    if (self->m_luaLayerRules.contains(name)) {
         rule                          = self->m_luaLayerRules[name];
         self->m_luaLayerRuleGen[name] = {.generation = !self->isSweepImmune() ? self->currentGeneration() : 0, .sourcePath = self->currentLuaSourcePath()};
     } else {
         rule = makeShared<Desktop::Rule::CLayerRule>(name);
-        if (!name.empty()) {
-            self->m_luaLayerRules[name]   = rule;
-            self->m_luaLayerRuleGen[name] = {.generation = !self->isSweepImmune() ? self->currentGeneration() : 0, .sourcePath = self->currentLuaSourcePath()};
-        }
+        self->m_luaLayerRules[name]   = rule;
+        self->m_luaLayerRuleGen[name] = {.generation = !self->isSweepImmune() ? self->currentGeneration() : 0, .sourcePath = self->currentLuaSourcePath()};
         Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>(rule));
     }
     rule->setEnabled(enabled);

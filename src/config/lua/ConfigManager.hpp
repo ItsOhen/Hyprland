@@ -183,6 +183,7 @@ namespace Config::Lua {
         // named window/layer rules for merge-on-redeclaration
         std::unordered_map<std::string, SP<Desktop::Rule::CWindowRule>> m_luaWindowRules;
         std::unordered_map<std::string, SRegistrationMeta>              m_luaWindowRuleGen;
+        size_t                                                          m_anonymousRuleCount = 0;
         std::unordered_map<std::string, SP<Desktop::Rule::CLayerRule>>  m_luaLayerRules;
         std::unordered_map<std::string, SRegistrationMeta>              m_luaLayerRuleGen;
 

@@ -121,6 +121,7 @@ void CReloadPipeline::phaseClearState() {
     m_mgr->m_luaWindowRuleGen.clear();
     m_mgr->m_luaLayerRules.clear();
     m_mgr->m_luaLayerRuleGen.clear();
+    m_mgr->m_anonymousRuleCount = 0;
     g_pTrackpadGestures->clearGestures();
     m_mgr->m_luaGestures.clear();
     m_mgr->cleanTimers();

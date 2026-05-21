@@ -385,6 +385,8 @@ void CConfigManager::init() {
         } else if (m_dependencyGraph->hasPath(e.file)) {
             std::unordered_set<std::string> visited;
             reloadModule(e.file, visited);
+            m_isParsingConfig = true;
+            Hyprutils::Utils::CScopeGuard x([this] { m_isParsingConfig = false; });
             postConfigReload();
         } else {
             auto fileName = std::filesystem::path(e.file).filename().string();
