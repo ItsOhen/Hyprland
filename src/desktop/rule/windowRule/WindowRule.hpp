@@ -58,6 +58,8 @@ namespace Desktop::Rule {
         CWindowRule(CWindowRule&)       = default;
         CWindowRule(CWindowRule&&)      = default;
 
+        static bool                                          isValidMatchProperty(eRuleProperty prop);
+
         static std::expected<SP<CWindowRule>, std::string> buildFromExecString(std::string&&);
 
         std::expected<void, std::string>                   addEffect(storageType e, const Math::SExpressionVec2& expr);

@@ -42,7 +42,9 @@ void CReloadPipeline::phaseEnter(SReloadContext& ctx) {
 
     m_mgr->m_currentSourcePath = ctx.filePath;
     ctx.newGen                 = m_mgr->advanceFileGeneration(ctx.filePath);
-    m_mgr->m_errors.clear();
+
+    if (ctx.scope == eReloadScope::FULL)
+        m_mgr->m_errors.clear();
 
     if (ctx.scope == eReloadScope::FULL) {
         auto mainName = std::filesystem::path(ctx.filePath).filename().string();
@@ -174,6 +176,7 @@ void CReloadPipeline::phaseFinalize(SReloadContext& ctx) {
         m_mgr->sweepStaleRegistrations();
         if (ctx.visited && !ctx.moduleName.empty())
             m_mgr->cascadeUpReload(ctx.filePath, *ctx.visited);
+        m_mgr->postConfigReload();
         m_mgr->logStateAfterReload(ctx.filePath, ctx.newGen);
     }
 }

@@ -365,10 +365,8 @@ bool CWindowRule::matches(PHLWINDOW w, bool allowEnvLookup) {
 
     for (const auto& [prop, engine] : m_matchEngines) {
         switch (prop) {
-            default: {
-                Log::logger->log(Log::TRACE, "CWindowRule::matches: skipping prop entry {}", sc<std::underlying_type_t<eRuleProperty>>(prop));
+            default:
                 break;
-            }
 
             case RULE_PROP_TITLE:
                 if (!engine->match(w->m_title))
@@ -496,4 +494,31 @@ std::expected<SP<CWindowRule>, std::string> CWindowRule::buildFromExecString(std
     }
 
     return wr;
+}
+
+bool CWindowRule::isValidMatchProperty(eRuleProperty prop) {
+    switch (prop) {
+        case RULE_PROP_TITLE:
+        case RULE_PROP_INITIAL_TITLE:
+        case RULE_PROP_CLASS:
+        case RULE_PROP_INITIAL_CLASS:
+        case RULE_PROP_FLOATING:
+        case RULE_PROP_TAG:
+        case RULE_PROP_XWAYLAND:
+        case RULE_PROP_FULLSCREEN:
+        case RULE_PROP_PINNED:
+        case RULE_PROP_FOCUS:
+        case RULE_PROP_GROUP:
+        case RULE_PROP_MODAL:
+        case RULE_PROP_FULLSCREENSTATE_INTERNAL:
+        case RULE_PROP_FULLSCREENSTATE_CLIENT:
+        case RULE_PROP_ON_WORKSPACE:
+        case RULE_PROP_CONTENT:
+        case RULE_PROP_XDG_TAG:
+        case RULE_PROP_EXEC_TOKEN:
+        case RULE_PROP_EXEC_PID:
+            return true;
+        default:
+            return false;
+    }
 }

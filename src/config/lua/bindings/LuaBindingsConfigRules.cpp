@@ -1130,9 +1130,14 @@ static int hlWindowRule(lua_State* L) {
                     continue;
                 }
                 auto prop = Desktop::Rule::matchPropFromString(matchKey);
-                if (prop.has_value())
+                if (prop.has_value()) {
+                    if (!Desktop::Rule::CWindowRule::isValidMatchProperty(*prop)) {
+                        self->addError(std::format("{}: hl.window_rule: '{}' is not a valid match property for window rules", sourceInfo, matchKey));
+                        lua_pop(L, 1);
+                        continue;
+                    }
                     rule->registerMatch(*prop, matchVal);
-                else
+                } else
                     self->addError(std::format("{}: hl.window_rule: unknown match property '{}'", sourceInfo, matchKey));
             }
             lua_pop(L, 1);

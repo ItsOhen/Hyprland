@@ -837,12 +837,14 @@ void CConfigManager::postConfigReload() {
 
 void CConfigManager::addError(std::string&& str) {
     if (m_isParsingConfig) {
-        m_errors.emplace_back(std::move(str));
+        if (std::find(m_errors.begin(), m_errors.end(), str) == m_errors.end())
+            m_errors.emplace_back(std::move(str));
         return;
     }
 
     if (m_isEvaluating) {
-        m_errors.emplace_back(std::move(str));
+        if (std::find(m_errors.begin(), m_errors.end(), str) == m_errors.end())
+            m_errors.emplace_back(std::move(str));
         return;
     }
 
