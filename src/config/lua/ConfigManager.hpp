@@ -175,10 +175,11 @@ namespace Config::Lua {
             std::unordered_map<std::string, UP<ILuaConfigValue>> values;
         };
 
-        std::unordered_map<std::string, SDeviceConfig>     m_deviceConfigs;
-        std::unordered_map<std::string, SRegistrationMeta> m_deviceConfigGen;
-        std::vector<std::string>                           m_errors, m_configPaths;
-        std::vector<Config::SConfigError>                  m_evalIssues;
+        std::unordered_map<std::string, SDeviceConfig>            m_deviceConfigs;
+        std::unordered_map<std::string, SRegistrationMeta>        m_deviceConfigGen;
+        std::unordered_map<std::string, std::vector<std::string>> m_errors;
+        std::vector<std::string>                                  m_configPaths;
+        std::vector<Config::SConfigError>                         m_evalIssues;
 
         // named window/layer rules for merge-on-redeclaration
         std::unordered_map<std::string, SP<Desktop::Rule::CWindowRule>> m_luaWindowRules;

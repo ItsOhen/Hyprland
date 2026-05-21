@@ -387,12 +387,12 @@ void CConfigManager::init() {
             reloadModule(e.file, visited);
             m_isParsingConfig = true;
             Hyprutils::Utils::CScopeGuard x([this] { m_isParsingConfig = false; });
-            postConfigReload();
         } else {
             auto fileName = std::filesystem::path(e.file).filename().string();
             Log::logger->log(Log::LUA, std::vformat("[{}@{}]: not tracked, full reload", std::make_format_args(fileName, m_reloadGeneration)));
             reload();
         }
+        postConfigReload();
     });
 
     reload();
@@ -770,11 +770,18 @@ void CConfigManager::postConfigReload() {
 
         errorStr += "Your config has errors:\n";
 
-        for (const auto& e : m_errors) {
-            errorStr += e + "\n";
+        bool limitReached = false;
+        for (const auto& [moduleName, errorVector] : m_errors) {
+            for (const auto& e : errorVector) {
+                errorStr += std::format("[{}]: {}\n", moduleName, e);
 
-            if (std::ranges::count(errorStr, '\n') > 15) {
-                errorStr += "... more";
+                if (std::ranges::count(errorStr, '\n') > 15) {
+                    errorStr += "... more";
+                    limitReached = true;
+                    break;
+                }
+            }
+            if (limitReached) {
                 break;
             }
         }
@@ -836,20 +843,21 @@ void CConfigManager::postConfigReload() {
 }
 
 void CConfigManager::addError(std::string&& str) {
-    if (m_isParsingConfig) {
-        if (std::find(m_errors.begin(), m_errors.end(), str) == m_errors.end())
-            m_errors.emplace_back(std::move(str));
+    std::string moduleName = currentLuaSourcePath();
+    if (moduleName.empty()) {
+        moduleName = "Global/Unknown";
+    }
+
+    if (m_isParsingConfig || m_isEvaluating) {
+        auto& moduleErrors = m_errors[moduleName];
+
+        if (std::ranges::find(moduleErrors, str) == moduleErrors.end()) {
+            moduleErrors.emplace_back(std::move(str));
+        }
         return;
     }
 
-    if (m_isEvaluating) {
-        if (std::find(m_errors.begin(), m_errors.end(), str) == m_errors.end())
-            m_errors.emplace_back(std::move(str));
-        return;
-    }
-
-    // pop a notification
-    Notification::overlay()->addNotification(std::format("Runtime error in lua:\n{}", std::move(str)), 0, 5000, ICON_WARNING);
+    Notification::overlay()->addNotification(std::format("[{}] Runtime error in lua:\n{}", moduleName, std::move(str)), 0, 5000, ICON_WARNING);
 }
 
 void CConfigManager::addModulePath(const std::string& path, const std::string& moduleName) {
@@ -899,18 +907,18 @@ std::optional<std::string> CConfigManager::eval(const std::string& code) {
         std::string out;
         out.reserve(256);
 
-        for (size_t i = 0; i < m_errors.size(); ++i) {
-            out += "error: ";
-            out += m_errors.at(i);
-            out += "\n";
+        for (const auto& [moduleName, errorVector] : m_errors) {
+            for (const auto& e : errorVector) {
+                out += std::format("error [{}]: {}\n", moduleName, e);
+            }
         }
 
         for (const auto& issue : m_evalIssues) {
-            out += std::format("{}: {}", Config::toString(issue.level), issue.message);
-            out += "\n";
+            out += std::format("{}: {}\n", Config::toString(issue.level), issue.message);
         }
 
-        out.pop_back();
+        if (!out.empty())
+            out.pop_back();
 
         return out;
     }
@@ -926,9 +934,11 @@ std::string CConfigManager::verify() {
         return "config ok";
 
     std::string fullStr = "";
-    for (const auto& e : m_errors) {
-        fullStr += e;
-        fullStr += "\n";
+    for (const auto& [moduleName, errorVector] : m_errors) {
+        for (const auto& e : errorVector) {
+            fullStr += std::format("[{}]: {}", moduleName, e);
+            fullStr += "\n";
+        }
     }
 
     fullStr.pop_back();
@@ -1025,8 +1035,10 @@ std::string CConfigManager::getMainConfigPath() {
 
 std::string CConfigManager::getErrors() {
     std::string errStr;
-    for (const auto& e : m_errors) {
-        errStr += e + "\n";
+    for (const auto& [moduleName, errorVector] : m_errors) {
+        for (const auto& e : errorVector) {
+            errStr += std::format("[{}]: {}\n", moduleName, e);
+        }
     }
 
     if (!errStr.empty())

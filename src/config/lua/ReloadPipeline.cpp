@@ -19,7 +19,6 @@ CReloadPipeline::CReloadPipeline(CConfigManager* mgr) : m_mgr(mgr) {}
 
 void CReloadPipeline::execute(SReloadContext& ctx) {
     phaseEnter(ctx);
-
     phaseLoad(ctx);
     if (!ctx.syntaxCheckOk)
         return;
@@ -28,7 +27,6 @@ void CReloadPipeline::execute(SReloadContext& ctx) {
         phaseClearState();
 
     phaseExecute(ctx);
-
     phaseFinalize(ctx);
 }
 
@@ -38,13 +36,13 @@ void CReloadPipeline::phaseEnter(SReloadContext& ctx) {
         m_mgr->m_dependencyGraph->clear();
         m_mgr->m_fileGenerations.clear();
         m_mgr->m_configPaths.emplace_back(m_mgr->m_mainConfigPath);
+        m_mgr->m_errors.clear();
+    } else {
+        m_mgr->m_errors.erase(ctx.filePath);
     }
 
     m_mgr->m_currentSourcePath = ctx.filePath;
     ctx.newGen                 = m_mgr->advanceFileGeneration(ctx.filePath);
-
-    if (ctx.scope == eReloadScope::FULL)
-        m_mgr->m_errors.clear();
 
     if (ctx.scope == eReloadScope::FULL) {
         auto mainName = std::filesystem::path(ctx.filePath).filename().string();
@@ -64,15 +62,8 @@ void CReloadPipeline::phaseLoad(SReloadContext& ctx) {
         while (lua_next(m_mgr->m_lua, -2)) {
             lua_pop(m_mgr->m_lua, 1);
             if (lua_isstring(m_mgr->m_lua, -1)) {
-                std::string_view mod  = lua_tostring(m_mgr->m_lua, -1);
-                bool             skip = false;
-                for (const auto& s : STDLIB) {
-                    if (mod == s) {
-                        skip = true;
-                        break;
-                    }
-                }
-                if (!skip) {
+                std::string_view mod = lua_tostring(m_mgr->m_lua, -1);
+                if (std::ranges::find(STDLIB, mod) == std::end(STDLIB)) {
                     lua_pushvalue(m_mgr->m_lua, -1);
                     lua_pushnil(m_mgr->m_lua);
                     lua_settable(m_mgr->m_lua, -4);
@@ -80,37 +71,30 @@ void CReloadPipeline::phaseLoad(SReloadContext& ctx) {
             }
         }
         lua_pop(m_mgr->m_lua, 2);
+    } else if (!ctx.moduleName.empty()) {
+        lua_getglobal(m_mgr->m_lua, "package");
+        lua_getfield(m_mgr->m_lua, -1, "loaded");
+        lua_pushstring(m_mgr->m_lua, ctx.moduleName.c_str());
+        lua_pushnil(m_mgr->m_lua);
+        lua_settable(m_mgr->m_lua, -3);
+        lua_pop(m_mgr->m_lua, 2);
 
-        if (luaL_loadfile(m_mgr->m_lua, m_mgr->m_mainConfigPath.c_str()) != LUA_OK) {
+        lua_getglobal(m_mgr->m_lua, "require");
+        lua_pushstring(m_mgr->m_lua, ctx.moduleName.c_str());
+        return;
+    }
+
+    if (luaL_loadfile(m_mgr->m_lua, m_mgr->m_mainConfigPath.c_str()) != LUA_OK) {
+        if (ctx.scope == eReloadScope::FULL)
             m_mgr->m_errors.clear();
-            m_mgr->addError(lua_tostring(m_mgr->m_lua, -1));
-            lua_pop(m_mgr->m_lua, 1);
-            lua_remove(m_mgr->m_lua, 1);
-            ctx.syntaxCheckOk                            = false;
-            m_mgr->m_lastConfigVerificationWasSuccessful = false;
-            return;
-        }
-    } else {
-        if (!ctx.moduleName.empty()) {
-            lua_getglobal(m_mgr->m_lua, "package");
-            lua_getfield(m_mgr->m_lua, -1, "loaded");
-            lua_pushstring(m_mgr->m_lua, ctx.moduleName.c_str());
-            lua_pushnil(m_mgr->m_lua);
-            lua_settable(m_mgr->m_lua, -3);
-            lua_pop(m_mgr->m_lua, 2);
+        else
+            m_mgr->m_errors.erase(ctx.filePath);
 
-            lua_getglobal(m_mgr->m_lua, "require");
-            lua_pushstring(m_mgr->m_lua, ctx.moduleName.c_str());
-        } else {
-            if (luaL_loadfile(m_mgr->m_lua, m_mgr->m_mainConfigPath.c_str()) != LUA_OK) {
-                m_mgr->addError(lua_tostring(m_mgr->m_lua, -1));
-                lua_pop(m_mgr->m_lua, 1);
-                lua_remove(m_mgr->m_lua, 1);
-                ctx.syntaxCheckOk                            = false;
-                m_mgr->m_lastConfigVerificationWasSuccessful = false;
-                return;
-            }
-        }
+        m_mgr->addError(lua_tostring(m_mgr->m_lua, -1));
+        lua_pop(m_mgr->m_lua, 1);
+        lua_remove(m_mgr->m_lua, 1);
+        ctx.syntaxCheckOk                            = false;
+        m_mgr->m_lastConfigVerificationWasSuccessful = false;
     }
 }
 
@@ -136,29 +120,22 @@ void CReloadPipeline::phaseClearState() {
     m_mgr->m_luaKeybindRefGen.clear();
     std::erase_if(g_pKeybindManager->m_keybinds, [](const auto& kb) { return kb->handler == "__lua"; });
     m_mgr->reregisterLuaPluginFns();
-    for (const auto& v : m_mgr->m_configValues) {
-        v.second->reset();
+    for (const auto& [_, v] : m_mgr->m_configValues) {
+        v->reset();
     }
 }
 
 void CReloadPipeline::phaseExecute(SReloadContext& ctx) {
-    if (ctx.scope == eReloadScope::FULL) {
-        if (m_mgr->guardedPCall(0, 0, 1, CConfigManager::LUA_TIMEOUT_CONFIG_RELOAD_MS, "config reload") != LUA_OK) {
-            m_mgr->addError(lua_tostring(m_mgr->m_lua, -1));
-            lua_pop(m_mgr->m_lua, 1);
+    const char* logMsg = ctx.scope == eReloadScope::FULL ? "config reload" : (ctx.moduleName.empty() ? "main config cascade" : "module reload");
+    int         nargs  = (ctx.scope != eReloadScope::FULL && !ctx.moduleName.empty()) ? 1 : 0;
+
+    if (m_mgr->guardedPCall(nargs, 0, 1, CConfigManager::LUA_TIMEOUT_CONFIG_RELOAD_MS, logMsg) != LUA_OK) {
+        m_mgr->addError(lua_tostring(m_mgr->m_lua, -1));
+        lua_pop(m_mgr->m_lua, 1);
+        if (ctx.scope == eReloadScope::FULL)
             m_mgr->m_lastConfigVerificationWasSuccessful = false;
-        } else
-            m_mgr->m_lastConfigVerificationWasSuccessful = m_mgr->m_errors.empty();
-    } else if (ctx.moduleName.empty()) {
-        if (m_mgr->guardedPCall(0, 0, 1, CConfigManager::LUA_TIMEOUT_CONFIG_RELOAD_MS, "main config cascade") != LUA_OK) {
-            m_mgr->addError(lua_tostring(m_mgr->m_lua, -1));
-            lua_pop(m_mgr->m_lua, 1);
-        }
-    } else {
-        if (m_mgr->guardedPCall(1, 0, 1, CConfigManager::LUA_TIMEOUT_CONFIG_RELOAD_MS, "module reload") != LUA_OK) {
-            m_mgr->addError(lua_tostring(m_mgr->m_lua, -1));
-            lua_pop(m_mgr->m_lua, 1);
-        }
+    } else if (ctx.scope == eReloadScope::FULL) {
+        m_mgr->m_lastConfigVerificationWasSuccessful = m_mgr->m_errors.empty();
     }
 
     lua_remove(m_mgr->m_lua, 1);
@@ -166,17 +143,13 @@ void CReloadPipeline::phaseExecute(SReloadContext& ctx) {
 
 void CReloadPipeline::phaseFinalize(SReloadContext& ctx) {
     lua_gc(m_mgr->m_lua, LUA_GCCOLLECT, 0);
-
     Config::watcher()->update();
+    m_mgr->sweepStaleRegistrations();
 
-    if (ctx.scope == eReloadScope::FULL) {
-        m_mgr->sweepStaleRegistrations();
-        m_mgr->postConfigReload();
-    } else {
-        m_mgr->sweepStaleRegistrations();
+    if (ctx.scope != eReloadScope::FULL) {
         if (ctx.visited && !ctx.moduleName.empty())
             m_mgr->cascadeUpReload(ctx.filePath, *ctx.visited);
-        m_mgr->postConfigReload();
         m_mgr->logStateAfterReload(ctx.filePath, ctx.newGen);
     }
+    m_mgr->postConfigReload();
 }
