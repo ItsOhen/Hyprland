@@ -433,7 +433,7 @@ void SScrollingData::recalculate(bool forceInstant) {
                         }
                     }
                 } else if (TARGET == FS && TARGET->target->fullscreenMode() == FSMODE_MAXIMIZED) {
-                    if (algorithm->fullscreenColumnCoversMonitor(COL))
+                    if (algorithm.fullscreenColumnCoversMonitor(COL))
                         TARGET->layoutBox = WORKAREA;
                     else {
                         TARGET->layoutBox = controller->calculateStripBox(i, USABLE, WORKAREA.pos(), *PFSONONE);
@@ -835,7 +835,7 @@ void CScrollingAlgorithm::syncFullscreenTargets() {
 
     // Maximised (mode = FSMODE_MAXIMIZED)
     for (auto it = m_fullscreenTargets.begin(); it != m_fullscreenTargets.end();) {
-        const auto TARGET = it->target.lock();
+        const auto TARGET = (*it)->target.lock();
 
         if (!TARGET || !TARGET->layoutManagedFullscreen() || TARGET->fullscreenMode() != FSMODE_MAXIMIZED || TARGET->space() != m_parent->space()) {
             it = m_fullscreenTargets.erase(it);
@@ -1082,7 +1082,7 @@ void CScrollingAlgorithm::clearFullscreenTarget(SP<ITarget> target) {
 
         if (!TARGET || (target && TARGET != target)) {
             if (!TARGET)
-                it = fullscreenTargetList.erase(it);
+                it = m_fullscreenTargets.erase(it);
             else
                 ++it;
             continue;
@@ -1095,7 +1095,7 @@ void CScrollingAlgorithm::clearFullscreenTarget(SP<ITarget> target) {
         if (const auto COL = TDATA ? TDATA->column.lock() : nullptr; COL && (*it)->restoreColumnWidth)
             COL->setColumnWidth(*(*it)->restoreColumnWidth);
 
-        it = fullscreenTargetList.erase(it);
+        it = m_fullscreenTargets.erase(it);
     }
 
     if (target && target->layoutManagedFullscreen())

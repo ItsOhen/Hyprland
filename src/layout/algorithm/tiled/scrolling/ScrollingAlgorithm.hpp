@@ -166,7 +166,7 @@ namespace Layout::Tiled {
         float                               fullscreenColumnWidth() const;
         bool                                fullscreenColumnCoversMonitor(SP<SColumnData> col) const;
         void                                updateFullscreenFade(bool coversMonitor);
-        void                                clearFullscreenTarget(std::vector<SFullscreenScrollState>& fullscreenTargetList, SP<ITarget> target = nullptr);
+        void                                clearFullscreenTarget(SP<ITarget> target);
 
         SP<SScrollingTargetData>            findBestNeighbor(SP<SScrollingTargetData> pCurrent, SP<SColumnData> pTargetCol);
         SP<SScrollingTargetData>            closestNode(const Vector2D& posGlobglobgabgalab);

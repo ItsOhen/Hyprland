@@ -1,5 +1,7 @@
 #include "LuaBindingsInternal.hpp"
 
+#include "Check.hpp"
+
 #include <hyprutils/string/String.hpp>
 #include <lua.h>
 

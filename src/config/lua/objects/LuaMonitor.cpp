@@ -100,9 +100,6 @@ void Objects::CLuaMonitor::setup(lua_State* L) {
         lua_pushnumber(L, mon->m_refreshRate);
         return 1;
     });
-        lua_pushnumber(L, mon->m_refreshRate);
-        return 1;
-    });
 
     Objects::CLuaMonitor::s_schema->addProperty("x", [](lua_State* L, PHLMONITOR mon) {
         lua_pushinteger(L, sc<int>(mon->m_position.x));
