@@ -250,8 +250,8 @@ SP<SColumnData> SScrollingData::add(std::optional<float> width) {
     auto col  = columns.emplace_back(makeShared<SColumnData>(self.lock()));
     col->self = col;
 
-    size_t stripIdx                         = controller->addStrip(width.value_or(algorithm.defaultColumnWidth()));
-        controller->getStrip(stripIdx)->userData = col;
+    size_t stripIdx                          = controller->addStrip(width.value_or(algorithm.defaultColumnWidth()));
+    controller->getStrip(stripIdx)->userData = col;
 
     return col;
 }
@@ -262,7 +262,7 @@ SP<SColumnData> SScrollingData::add(int after, std::optional<float> width) {
     columns.insert(columns.begin() + after + 1, col);
 
     controller->insertStrip(after, width.value_or(algorithm.defaultColumnWidth()));
-        controller->getStrip(after + 1)->userData = col;
+    controller->getStrip(after + 1)->userData = col;
 
     return col;
 }
@@ -861,7 +861,8 @@ void CScrollingAlgorithm::syncFullscreenTargets() {
                 continue;
 
             if (!fullscreenStateForTarget(TARGET))
-                m_fullscreenTargets.emplace_back(makeShared<SFullscreenScrollState>(SFullscreenScrollState{.target = TARGET, .restoreColumnWidth = COL ? std::optional<float>{COL->getColumnWidth()} : std::nullopt}));
+                m_fullscreenTargets.emplace_back(makeShared<SFullscreenScrollState>(
+                    SFullscreenScrollState{.target = TARGET, .restoreColumnWidth = COL ? std::optional<float>{COL->getColumnWidth()} : std::nullopt}));
 
             syncWidth(TARGET, COL);
         }
@@ -1428,7 +1429,34 @@ Config::ErrorResult CScrollingAlgorithm::layoutMsg(const std::string_view& sv) {
         };
 
         if (ARGS[1] == "active") {
-            fitAndSetOffset(0, 1, sumWidthsBefore(findFocusedCol()));
+            const auto USABLE    = usableArea();
+            const auto screenpos = m_scrollingData->controller->getOffset();
+            const auto tape      = normalizedTapeOffset();
+
+            auto       acc      = 0.0;
+            auto       newWidth = 0.F;
+
+            for (const auto& COL : m_scrollingData->columns) {
+                const auto COLWIDTH = USABLE.w * COL->getColumnWidth();
+
+                if (COL != WDATA->column && m_scrollingData->visible(COL)) {
+                    auto left      = acc - screenpos;
+                    auto right     = left + COLWIDTH;
+                    auto fillleft  = std::max(0.0, left);
+                    auto fillright = std::min(USABLE.w, right);
+
+                    if (fillright > fillleft) {
+                        newWidth += ((fillright - fillleft) / USABLE.w);
+                    }
+                }
+                acc += COLWIDTH;
+            }
+
+            auto rem = std::clamp(1.f - newWidth, 0.F, 1.F);
+            WDATA->column->setColumnWidth(rem);
+            m_scrollingData->recalculate();
+
+            snapToProjectedOffset(tape);
         } else if (ARGS[1] == "all") {
             fitAndSetOffset(0, m_scrollingData->columns.size(), 0);
         } else if (ARGS[1] == "toend") {
