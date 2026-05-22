@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../bindings/LuaBindingsInternal.hpp"
+#include "../bindings/Check.hpp"
 #include <functional>
 #include <map>
 #include <string>

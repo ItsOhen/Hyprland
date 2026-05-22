@@ -13,6 +13,7 @@
 
 using namespace Config;
 using namespace Config::Lua;
+using namespace Config::Lua::Bindings;
 
 static constexpr const char*                            MT = "HL.Notification";
 
@@ -158,19 +159,24 @@ static int notificationIsPaused(lua_State* L) {
 }
 
 static int notificationSetText(lua_State* L) {
-    auto*       ref  = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
-    const auto* text = luaL_checkstring(L, 2);
+    auto* ref   = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
+    auto  text_ = Check::string(L, 2);
+    if (!text_)
+        return Internal::configError(L, std::format("HL.Notification:set_text: bad argument 2: {}", text_.error()));
 
     if (const auto notification = ref->notification.lock(); notification)
-        notification->setText(text);
+        notification->setText(std::move(*text_));
 
     return 0;
 }
 
 static int notificationSetTimeout(lua_State* L) {
-    auto*      ref = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
+    auto* ref = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
 
-    const auto timeoutMs = sc<float>(luaL_checknumber(L, 2));
+    auto  timeoutMs_ = Check::number(L, 2);
+    if (!timeoutMs_)
+        return Internal::configError(L, std::format("HL.Notification:set_timeout: bad argument 2: {}", timeoutMs_.error()));
+    const auto timeoutMs = sc<float>(*timeoutMs_);
     if (timeoutMs < 0.F)
         return Config::Lua::Bindings::Internal::configError(L, "HL.Notification:set_timeout: timeout must be >= 0");
 
@@ -207,9 +213,12 @@ static int notificationSetIcon(lua_State* L) {
 }
 
 static int notificationSetFontSize(lua_State* L) {
-    auto*      ref = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
+    auto* ref = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
 
-    const auto fontSize = sc<float>(luaL_checknumber(L, 2));
+    auto  fontSize_ = Check::number(L, 2);
+    if (!fontSize_)
+        return Internal::configError(L, std::format("HL.Notification:set_font_size: bad argument 2: {}", fontSize_.error()));
+    const auto fontSize = sc<float>(*fontSize_);
     if (fontSize <= 0.F)
         return Config::Lua::Bindings::Internal::configError(L, "HL.Notification:set_font_size: font size must be > 0");
 
@@ -328,7 +337,10 @@ static int notificationIsAlive(lua_State* L) {
 
 static int notificationIndex(lua_State* L) {
     luaL_checkudata(L, 1, MT);
-    const std::string_view key = luaL_checkstring(L, 2);
+    auto key_ = Check::string(L, 2);
+    if (!key_)
+        return Internal::configError(L, std::format("__index: bad argument 2: {}", key_.error()));
+    const std::string_view key = *key_;
 
     if (!Objects::CLuaNotification::s_schema || !Objects::CLuaNotification::s_schema->has(std::string(key))) {
         lua_pushnil(L);

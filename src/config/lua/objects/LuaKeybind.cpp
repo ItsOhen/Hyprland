@@ -5,6 +5,7 @@
 #include <memory>
 
 using namespace Config::Lua;
+using namespace Config::Lua::Bindings;
 
 static constexpr const char*         MT = "HL.Keybind";
 
@@ -90,8 +91,11 @@ static int keybindRemove(lua_State* L) {
 }
 
 static int keybindIndex(lua_State* L) {
-    const auto             keybind = getKeybindFromUserdata(L);
-    const std::string_view key     = luaL_checkstring(L, 2);
+    const auto keybind = getKeybindFromUserdata(L);
+    auto       key_    = Check::string(L, 2);
+    if (!key_)
+        return Internal::configError(L, std::format("__index: bad argument 2: {}", key_.error()));
+    const std::string_view key = *key_;
 
     // Check for methods first (these don't require schema lookup)
     if (key == "set_enabled") {

@@ -123,8 +123,11 @@ static std::expected<void, std::string> parseKeyString(SKeybind& kb, std::string
 }
 
 static int hlBind(lua_State* L) {
-    auto*            mgr  = (CConfigManager*)lua_touserdata(L, lua_upvalueindex(1));
-    std::string_view keys = luaL_checkstring(L, 1);
+    auto* mgr   = (CConfigManager*)lua_touserdata(L, lua_upvalueindex(1));
+    auto  keys_ = Check::string(L, 1);
+    if (!keys_)
+        return Internal::configError(L, std::format("hl.bind: bad argument 1: {}", keys_.error()));
+    std::string_view keys = *keys_;
 
     SKeybind         kb;
     kb.submap = {mgr->m_currentSubmap, mgr->m_currentSubmapReset};
@@ -413,8 +416,10 @@ static int hlUnbind(lua_State* L) {
         return 0;
     }
 
-    std::string str = luaL_checkstring(L, 1);
-    Config::Lua::postToMain([str]() { g_pKeybindManager->removeKeybind(str); });
+    auto str_ = Check::string(L, 1);
+    if (!str_)
+        return Internal::configError(L, std::format("hl.unbind: bad argument 1: {}", str_.error()));
+    Config::Lua::postToMain([str = *str_]() { g_pKeybindManager->removeKeybind(str); });
 
     return 0;
 }
@@ -426,19 +431,29 @@ static int hlTimer(lua_State* L) {
     luaL_checktype(L, 2, LUA_TTABLE);
 
     lua_getfield(L, 2, "timeout");
-    int timeoutMs = (int)luaL_checknumber(L, -1);
+    auto timeoutMs_ = Check::number(L, -1);
+    if (!timeoutMs_)
+        return Internal::configError(L, std::format("hl.timer: bad timeout: {}", timeoutMs_.error()));
+    int timeoutMs = (int)*timeoutMs_;
     lua_pop(L, 1);
 
     lua_getfield(L, 2, "type");
-    std::string type = luaL_checkstring(L, -1);
+    auto type_ = Check::string(L, -1);
+    if (!type_)
+        return Internal::configError(L, std::format("hl.timer: bad type: {}", type_.error()));
+    std::string type = *type_;
     lua_pop(L, 1);
 
     bool   repeat = (type == "repeat");
 
     size_t id = 0;
     lua_getfield(L, 2, "id");
-    if (!lua_isnil(L, -1))
-        id = (size_t)luaL_checknumber(L, -1);
+    if (!lua_isnil(L, -1)) {
+        auto id_ = Check::integer(L, -1);
+        if (!id_)
+            return Internal::configError(L, std::format("hl.timer: bad id: {}", id_.error()));
+        id = (size_t)*id_;
+    }
     lua_pop(L, 1);
 
     // If id matches an existing timer, update its Lua refs and return it

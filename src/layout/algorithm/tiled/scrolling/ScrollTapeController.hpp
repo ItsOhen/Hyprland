@@ -74,17 +74,17 @@ namespace Layout::Tiled {
         size_t                   getStripAtCenter(const CBox& usableArea, bool fullscreenOnOne = false) const;
 
       private:
-        eScrollDirection        m_direction = SCROLL_DIR_RIGHT;
+        eScrollDirection            m_direction = SCROLL_DIR_RIGHT;
         std::vector<SP<SStripData>> m_strips;
-        double                  m_offset = 0.0;
-        struct SScrollInhibitor m_scrollInhibitor; // for inhibiting scrolling (prevents the viewport from moving)
+        double                      m_offset = 0.0;
+        struct SScrollInhibitor     m_scrollInhibitor; // for inhibiting scrolling (prevents the viewport from moving)
 
-        double                  getPrimary(const Vector2D& v) const;
-        double                  getSecondary(const Vector2D& v) const;
-        void                    setPrimary(Vector2D& v, double val) const;
-        void                    setSecondary(Vector2D& v, double val) const;
-        bool                    isBeingDragged() const;
+        double                      getPrimary(const Vector2D& v) const;
+        double                      getSecondary(const Vector2D& v) const;
+        void                        setPrimary(Vector2D& v, double val) const;
+        void                        setSecondary(Vector2D& v, double val) const;
+        bool                        isBeingDragged() const;
 
-        Vector2D                makeVector(double primary, double secondary) const;
+        Vector2D                    makeVector(double primary, double secondary) const;
     };
 };

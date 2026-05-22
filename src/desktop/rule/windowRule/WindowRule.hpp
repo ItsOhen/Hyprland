@@ -58,7 +58,7 @@ namespace Desktop::Rule {
         CWindowRule(CWindowRule&)       = default;
         CWindowRule(CWindowRule&&)      = default;
 
-        static bool                                          isValidMatchProperty(eRuleProperty prop);
+        static bool                                        isValidMatchProperty(eRuleProperty prop);
 
         static std::expected<SP<CWindowRule>, std::string> buildFromExecString(std::string&&);
 

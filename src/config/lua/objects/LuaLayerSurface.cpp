@@ -9,6 +9,7 @@
 #include <memory>
 
 using namespace Config::Lua;
+using namespace Config::Lua::Bindings;
 
 static constexpr const char*  MT = "HL.LayerSurface";
 
@@ -44,7 +45,10 @@ static int layerSurfaceIndex(lua_State* L) {
         return 1;
     }
 
-    const std::string_view key = luaL_checkstring(L, 2);
+    auto key_ = Check::string(L, 2);
+    if (!key_)
+        return Internal::configError(L, std::format("__index: bad argument 2: {}", key_.error()));
+    const std::string_view key = *key_;
 
     if (!Objects::CLuaLayerSurface::s_schema || !Objects::CLuaLayerSurface::s_schema->hasProperty(std::string(key))) {
         lua_pushnil(L);

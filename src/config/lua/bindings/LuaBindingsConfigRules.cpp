@@ -1103,7 +1103,7 @@ static int hlWindowRule(lua_State* L) {
         rule                           = self->m_luaWindowRules[name];
         self->m_luaWindowRuleGen[name] = {.generation = !self->isSweepImmune() ? self->currentGeneration() : 0, .sourcePath = self->currentLuaSourcePath()};
     } else {
-        rule = makeShared<Desktop::Rule::CWindowRule>(name);
+        rule                           = makeShared<Desktop::Rule::CWindowRule>(name);
         self->m_luaWindowRules[name]   = rule;
         self->m_luaWindowRuleGen[name] = {.generation = !self->isSweepImmune() ? self->currentGeneration() : 0, .sourcePath = self->currentLuaSourcePath()};
         Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>(rule));
@@ -1222,7 +1222,7 @@ static int hlLayerRule(lua_State* L) {
         rule                          = self->m_luaLayerRules[name];
         self->m_luaLayerRuleGen[name] = {.generation = !self->isSweepImmune() ? self->currentGeneration() : 0, .sourcePath = self->currentLuaSourcePath()};
     } else {
-        rule = makeShared<Desktop::Rule::CLayerRule>(name);
+        rule                          = makeShared<Desktop::Rule::CLayerRule>(name);
         self->m_luaLayerRules[name]   = rule;
         self->m_luaLayerRuleGen[name] = {.generation = !self->isSweepImmune() ? self->currentGeneration() : 0, .sourcePath = self->currentLuaSourcePath()};
         Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>(rule));

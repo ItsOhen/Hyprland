@@ -259,12 +259,16 @@ uint32_t CKeybindManager::keycodeToModifier(xkb_keycode_t keycode) {
 
 uint32_t CKeybindManager::keysymToModifier(xkb_keysym_t sym) {
     switch (sym) {
-        case XKB_KEY_Control_L:  case XKB_KEY_Control_R:  return HL_MODIFIER_CTRL;
-        case XKB_KEY_Shift_L:    case XKB_KEY_Shift_R:    return HL_MODIFIER_SHIFT;
-        case XKB_KEY_Alt_L:      case XKB_KEY_Alt_R:      return HL_MODIFIER_ALT;
-        case XKB_KEY_Super_L:    case XKB_KEY_Super_R:    return HL_MODIFIER_META;
-        case XKB_KEY_Caps_Lock:                           return HL_MODIFIER_CAPS;
-        default:                                           return 0;
+        case XKB_KEY_Control_L:
+        case XKB_KEY_Control_R: return HL_MODIFIER_CTRL;
+        case XKB_KEY_Shift_L:
+        case XKB_KEY_Shift_R: return HL_MODIFIER_SHIFT;
+        case XKB_KEY_Alt_L:
+        case XKB_KEY_Alt_R: return HL_MODIFIER_ALT;
+        case XKB_KEY_Super_L:
+        case XKB_KEY_Super_R: return HL_MODIFIER_META;
+        case XKB_KEY_Caps_Lock: return HL_MODIFIER_CAPS;
+        default: return 0;
     }
 }
 
@@ -564,8 +568,7 @@ eMultiKeyCase CKeybindManager::mkKeysymSetMatches(const std::vector<KeybindKey>&
     }
 
     auto isModKey = [&](const KeybindKey& k) -> bool {
-        return (k.first != XKB_KEY_NoSymbol && keysymToModifier(k.first) != 0) ||
-               (k.second != 0 && keycodeToModifier(k.second) != 0);
+        return (k.first != XKB_KEY_NoSymbol && keysymToModifier(k.first) != 0) || (k.second != 0 && keycodeToModifier(k.second) != 0);
     };
 
     size_t nonModPressed = 0;

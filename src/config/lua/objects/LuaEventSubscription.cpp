@@ -5,6 +5,7 @@
 #include <memory>
 
 using namespace Config::Lua;
+using namespace Config::Lua::Bindings;
 
 static constexpr const char*     MT = "HL.EventSubscription";
 
@@ -54,7 +55,10 @@ static int eventSubscriptionIsActive(lua_State* L) {
 
 static int eventSubscriptionIndex(lua_State* L) {
     luaL_checkudata(L, 1, MT);
-    const std::string_view key = luaL_checkstring(L, 2);
+    auto key_ = Check::string(L, 2);
+    if (!key_)
+        return Internal::configError(L, std::format("__index: bad argument 2: {}", key_.error()));
+    const std::string_view key = *key_;
 
     if (key == "remove") {
         lua_pushcfunction(L, eventSubscriptionRemove);

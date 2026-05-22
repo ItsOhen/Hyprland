@@ -365,8 +365,7 @@ bool CWindowRule::matches(PHLWINDOW w, bool allowEnvLookup) {
 
     for (const auto& [prop, engine] : m_matchEngines) {
         switch (prop) {
-            default:
-                break;
+            default: break;
 
             case RULE_PROP_TITLE:
                 if (!engine->match(w->m_title))
@@ -516,9 +515,7 @@ bool CWindowRule::isValidMatchProperty(eRuleProperty prop) {
         case RULE_PROP_CONTENT:
         case RULE_PROP_XDG_TAG:
         case RULE_PROP_EXEC_TOKEN:
-        case RULE_PROP_EXEC_PID:
-            return true;
-        default:
-            return false;
+        case RULE_PROP_EXEC_PID: return true;
+        default: return false;
     }
 }
