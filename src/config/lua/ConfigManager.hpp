@@ -122,6 +122,7 @@ namespace Config::Lua {
 
         bool                       isFirstLaunch() const;
         bool                       isSweepImmune() const;
+        lua_State*                 luaState() const { return m_lua; }
 
         std::string                m_currentSubmap;
         std::string                m_currentSubmapReset;

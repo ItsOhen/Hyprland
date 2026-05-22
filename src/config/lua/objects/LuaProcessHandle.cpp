@@ -8,7 +8,33 @@
 using namespace Config::Lua::Objects;
 
 static int asyncExecContinue(lua_State* L, int status, lua_KContext ctx) {
-    // Just the res table from resume
+    auto* handle = toProcessHandle(L, 1);
+    if (handle && handle->result.has_value()) {
+        const auto& res = *handle->result;
+        lua_newtable(L);
+        bool isSystemError = !res.error.empty();
+        bool isSuccess     = !isSystemError && !res.timedOut && res.exitCode == 0;
+        lua_pushstring(L, isSystemError ? "error" : res.timedOut ? "timeout" : "success");
+        lua_setfield(L, -2, "type");
+        lua_pushboolean(L, isSuccess);
+        lua_setfield(L, -2, "ok");
+        if (isSystemError) {
+            lua_pushstring(L, res.error.c_str());
+            lua_setfield(L, -2, "message");
+        } else {
+            lua_pushinteger(L, res.exitCode);
+            lua_setfield(L, -2, "ec");
+            lua_pushstring(L, res.std_output.c_str());
+            lua_setfield(L, -2, "out");
+            lua_pushstring(L, res.std_error.c_str());
+            lua_setfield(L, -2, "err");
+        }
+        luaL_getmetatable(L, MT_PROCESS_RESULT);
+        if (!lua_isnil(L, -1))
+            lua_setmetatable(L, -2);
+        else
+            lua_pop(L, 1);
+    }
     return 1;
 }
 
@@ -18,6 +44,11 @@ static int asyncExecCall(lua_State* L) {
         return luaL_error(L, "process already started");
 
     handle->started = true;
+
+    if (handle->isComplete) {
+        asyncExecContinue(L, LUA_OK, 0);
+        return 1;
+    }
 
     lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_EV_HANDLER);
     auto* ev = (Config::Lua::CLuaEventHandler*)lua_touserdata(L, -1);

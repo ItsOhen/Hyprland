@@ -476,7 +476,7 @@ static int hlTimer(lua_State* L) {
 
     auto timer = makeShared<CEventLoopTimer>(
         std::chrono::milliseconds(timeoutMs),
-        [mgr, L](SP<CEventLoopTimer> self, void* data) {
+        [mgr](SP<CEventLoopTimer> self, void* data) {
             auto it = std::ranges::find_if(mgr->m_luaTimers, [&](const auto& lt) { return lt.timer == self; });
             if (it == mgr->m_luaTimers.end())
                 return;
@@ -487,7 +487,7 @@ static int hlTimer(lua_State* L) {
             lua_State* co = it->co;
 
             int        nres   = 0;
-            int        status = lua_resume(co, L, 0, &nres);
+            int        status = lua_resume(co, mgr->luaState(), 0, &nres);
 
             if (status != LUA_OK && status != LUA_YIELD) {
                 Log::logger->log(Log::LUA, "Timer error: {}", lua_tostring(co, -1));
@@ -497,9 +497,9 @@ static int hlTimer(lua_State* L) {
                 auto it2 = std::ranges::find_if(mgr->m_luaTimers, [&](const auto& lt) { return lt.timer == self; });
                 if (it2 != mgr->m_luaTimers.end()) {
                     if (it2->luaRef != LUA_NOREF)
-                        luaL_unref(L, LUA_REGISTRYINDEX, it2->luaRef);
+                        luaL_unref(mgr->luaState(), LUA_REGISTRYINDEX, it2->luaRef);
                     if (it2->coRef != LUA_NOREF)
-                        luaL_unref(L, LUA_REGISTRYINDEX, it2->coRef);
+                        luaL_unref(mgr->luaState(), LUA_REGISTRYINDEX, it2->coRef);
                     mgr->m_luaTimers.erase(it2);
                 }
             }
