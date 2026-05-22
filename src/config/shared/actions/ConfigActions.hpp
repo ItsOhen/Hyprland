@@ -3,6 +3,7 @@
 #include <expected>
 #include <string>
 #include <optional>
+#include <variant>
 
 #include "../../../desktop/DesktopTypes.hpp"
 #include "../../../desktop/Workspace.hpp"
