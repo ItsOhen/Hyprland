@@ -484,9 +484,7 @@ static int hlTimer(lua_State* L) {
             if (it->repeat)
                 self->updateTimeout(std::chrono::milliseconds(it->timeoutMs));
 
-            lua_State* co    = it->co;
-            int        fnRef = it->luaRef;
-            int        coRef = it->coRef;
+            lua_State* co = it->co;
 
             int        nres   = 0;
             int        status = lua_resume(co, L, 0, &nres);
@@ -496,11 +494,12 @@ static int hlTimer(lua_State* L) {
             }
 
             if (status != LUA_YIELD) {
-                luaL_unref(L, LUA_REGISTRYINDEX, coRef);
-                luaL_unref(L, LUA_REGISTRYINDEX, fnRef);
-
                 auto it2 = std::ranges::find_if(mgr->m_luaTimers, [&](const auto& lt) { return lt.timer == self; });
                 if (it2 != mgr->m_luaTimers.end()) {
+                    if (it2->luaRef != LUA_NOREF)
+                        luaL_unref(L, LUA_REGISTRYINDEX, it2->luaRef);
+                    if (it2->coRef != LUA_NOREF)
+                        luaL_unref(L, LUA_REGISTRYINDEX, it2->coRef);
                     mgr->m_luaTimers.erase(it2);
                 }
             }

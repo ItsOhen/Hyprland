@@ -276,9 +276,15 @@ void CConfigManager::cleanTimers() {
         t.timer->cancel();
         g_pEventLoopManager->removeTimer(t.timer);
 
-        if (m_lua && t.luaRef != LUA_NOREF) {
-            luaL_unref(m_lua, LUA_REGISTRYINDEX, t.luaRef);
-            t.luaRef = LUA_NOREF;
+        if (m_lua) {
+            if (t.luaRef != LUA_NOREF) {
+                luaL_unref(m_lua, LUA_REGISTRYINDEX, t.luaRef);
+                t.luaRef = LUA_NOREF;
+            }
+            if (t.coRef != LUA_NOREF) {
+                luaL_unref(m_lua, LUA_REGISTRYINDEX, t.coRef);
+                t.coRef = LUA_NOREF;
+            }
         }
     }
     m_luaTimers.clear();
@@ -581,9 +587,15 @@ void CConfigManager::sweepStaleRegistrations() {
                 continue;
             t.timer->cancel();
             g_pEventLoopManager->removeTimer(t.timer);
-            if (m_lua && t.luaRef != LUA_NOREF) {
-                luaL_unref(m_lua, LUA_REGISTRYINDEX, t.luaRef);
-                t.luaRef = LUA_NOREF;
+            if (m_lua) {
+                if (t.luaRef != LUA_NOREF) {
+                    luaL_unref(m_lua, LUA_REGISTRYINDEX, t.luaRef);
+                    t.luaRef = LUA_NOREF;
+                }
+                if (t.coRef != LUA_NOREF) {
+                    luaL_unref(m_lua, LUA_REGISTRYINDEX, t.coRef);
+                    t.coRef = LUA_NOREF;
+                }
             }
         }
         std::erase_if(m_luaTimers, [&](const auto& t) { return isStale(t.generation, t.sourcePath); });
