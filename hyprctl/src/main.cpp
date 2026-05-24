@@ -166,7 +166,8 @@ int rollingRead(const int socket) {
             break;
 
         if (sizeWritten > 0) {
-            std::println("{}", std::string(buffer.data(), sizeWritten));
+            std::print("{}", std::string_view(buffer.data(), sizeWritten));
+            std::cout.flush();
             buffer.fill('\0');
         }
 
