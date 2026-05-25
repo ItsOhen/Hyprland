@@ -24,6 +24,8 @@
 #include "../shared/inotify/ConfigWatcher.hpp"
 
 #include "../../desktop/rule/Engine.hpp"
+#include "../../desktop/rule/windowRule/WindowRule.hpp"
+#include "../../desktop/rule/layerRule/LayerRule.hpp"
 
 #include "../../event/EventBus.hpp"
 #include "../../Compositor.hpp"
@@ -702,6 +704,13 @@ void CConfigManager::sweepStaleRegistrations() {
         if (!keybindsToRemove.empty())
             Log::logger->log(Log::LUA, "[sweep]: removed {} stale __lua keybinds", keybindsToRemove.size());
         totalStale += keybindsToRemove.size();
+
+        // dump remaining keybinds with submap info
+        Log::logger->log(Log::LUA, "[dump-rules]: ===== {} keybind(s) =====", g_pKeybindManager->m_keybinds.size());
+        for (auto& kb : g_pKeybindManager->m_keybinds) {
+            Log::logger->log(Log::LUA, "[dump-rules]:   kb \"{}\" mod={:x} handler={} submap=\"{}\" arg={}", kb->displayKey, kb->modmask, kb->handler,
+                             kb->submap.name, kb->arg);
+        }
     }
 
     // sweep gestures
@@ -735,6 +744,82 @@ void CConfigManager::sweepStaleRegistrations() {
         if (swept > 0)
             Log::logger->log(Log::LUA, "[sweep]: removed {} stale gesture(s) ({} remain)", swept, m_luaGestures.size());
         totalStale += swept;
+    }
+
+    // dump thigns
+    {
+        using namespace Desktop::Rule;
+
+        auto& engineRules = ruleEngine()->rules();
+        Log::logger->log(Log::LUA, "[dump-rules]: ===== {} engine rule(s) =====", engineRules.size());
+        for (auto& r : engineRules) {
+            std::string matchProps;
+            for (const auto& s : allMatchPropStrings()) {
+                auto prop = matchPropFromString(s);
+                if (prop && (r->getPropertiesMask() & static_cast<std::underlying_type_t<eRuleProperty>>(*prop)))
+                    matchProps += (matchProps.empty() ? "" : ",") + s;
+            }
+
+            std::string effects;
+            if (r->type() == RULE_TYPE_WINDOW) {
+                auto* wr = dynamic_cast<CWindowRule*>(r.get());
+                if (wr) {
+                    for (auto& e : wr->effects()) {
+                        auto name = windowEffects()->get(e.key);
+                        effects += (effects.empty() ? "" : ";") + name + "=" + e.raw;
+                    }
+                }
+            }
+
+            Log::logger->log(Log::LUA, "[dump-rules]:   rule \"{}\" type={} enabled={} exec={} match=[{}] effects=[{}]", r->name(),
+                             r->type() == RULE_TYPE_WINDOW ? "window" : "layer", r->isEnabled(), r->isExecRule(), matchProps, effects);
+        }
+
+        auto& wrRules = Config::workspaceRuleMgr()->getAllWorkspaceRules();
+        Log::logger->log(Log::LUA, "[dump-rules]: ===== {} workspace rule(s) =====", wrRules.size());
+        for (auto& wr : wrRules) {
+            std::string props;
+            props += "monitor=" + wr.m_monitor;
+            props += " workspace=" + wr.m_workspaceString;
+            props += " enabled=" + std::to_string(wr.m_enabled);
+            if (wr.m_decorate.has_value())
+                props += " decorate=" + std::to_string(*wr.m_decorate);
+            if (wr.m_noRounding.has_value())
+                props += " no_rounding=" + std::to_string(*wr.m_noRounding);
+            if (wr.m_borderSize.has_value())
+                props += " border_size=" + std::to_string(*wr.m_borderSize);
+            if (wr.m_noBorder.has_value())
+                props += " no_border=" + std::to_string(*wr.m_noBorder);
+            if (wr.m_noShadow.has_value())
+                props += " no_shadow=" + std::to_string(*wr.m_noShadow);
+            if (wr.m_gapsIn.has_value())
+                props += " gaps_in";
+            if (wr.m_gapsOut.has_value())
+                props += " gaps_out";
+            Log::logger->log(Log::LUA, "[dump-rules]:   wsrule '{}': {}", wr.m_workspaceString, props);
+        }
+
+        Log::logger->log(Log::LUA, "[dump-rules]: ===== {} Lua window rule(s) =====", m_luaWindowRules.size());
+        for (auto& [name, rule] : m_luaWindowRules) {
+            auto it = m_luaWindowRuleGen.find(name);
+            uint64_t gen = (it != m_luaWindowRuleGen.end()) ? it->second.generation : 0;
+            std::string genStr = (it != m_luaWindowRuleGen.end()) ? std::to_string(gen) + " (" + it->second.sourcePath + ")" : "no-gen";
+
+            std::string effects;
+            if (rule) {
+                for (auto& e : rule->effects()) {
+                    auto ename = windowEffects()->get(e.key);
+                    effects += (effects.empty() ? "" : ";") + ename + "=" + e.raw;
+                }
+            }
+            Log::logger->log(Log::LUA, "[dump-rules]:   lua_rule \"{}\" gen={} effects=[{}]", name, genStr, effects);
+        }
+
+        auto& llRules = m_luaLayerRules;
+        Log::logger->log(Log::LUA, "[dump-rules]: ===== {} Lua layer rule(s) =====", llRules.size());
+        for (auto& [name, rule] : llRules) {
+            Log::logger->log(Log::LUA, "[dump-rules]:   lua_lr \"{}\"", name);
+        }
     }
 
     Log::logger->log(Log::LUA, "[sweep]: sweep done, removed {} stale registrations total", totalStale);
