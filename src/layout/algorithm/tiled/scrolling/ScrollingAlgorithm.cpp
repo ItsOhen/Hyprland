@@ -420,29 +420,31 @@ void SScrollingData::recalculate(bool forceInstant) {
 
             if (FS) {
                 if (TARGET == FS) {
-                    if (algorithm.fullscreenColumnCoversMonitor(COL))
-                        TARGET->layoutBox = MONBOX;
-                    else {
-                        TARGET->layoutBox = controller->calculateStripBox(i, USABLE, WORKAREA.pos(), *PFSONONE);
-                        if (controller->isPrimaryHorizontal()) {
-                            TARGET->layoutBox.y = MONBOX.y;
-                            TARGET->layoutBox.h = MONBOX.h;
-                        } else {
-                            TARGET->layoutBox.x = MONBOX.x;
-                            TARGET->layoutBox.w = MONBOX.w;
+                    if (TARGET->target->fullscreenMode() == FSMODE_MAXIMIZED) {
+                        if (algorithm.fullscreenColumnCoversMonitor(COL))
+                            TARGET->layoutBox = WORKAREA;
+                        else {
+                            TARGET->layoutBox = controller->calculateStripBox(i, USABLE, WORKAREA.pos(), *PFSONONE);
+                            if (controller->isPrimaryHorizontal()) {
+                                TARGET->layoutBox.y = WORKAREA.y;
+                                TARGET->layoutBox.h = WORKAREA.h;
+                            } else {
+                                TARGET->layoutBox.x = WORKAREA.x;
+                                TARGET->layoutBox.w = WORKAREA.w;
+                            }
                         }
-                    }
-                } else if (TARGET == FS && TARGET->target->fullscreenMode() == FSMODE_MAXIMIZED) {
-                    if (algorithm.fullscreenColumnCoversMonitor(COL))
-                        TARGET->layoutBox = WORKAREA;
-                    else {
-                        TARGET->layoutBox = controller->calculateStripBox(i, USABLE, WORKAREA.pos(), *PFSONONE);
-                        if (controller->isPrimaryHorizontal()) {
-                            TARGET->layoutBox.y = WORKAREA.y;
-                            TARGET->layoutBox.h = WORKAREA.h;
-                        } else {
-                            TARGET->layoutBox.x = WORKAREA.x;
-                            TARGET->layoutBox.w = WORKAREA.w;
+                    } else {
+                        if (algorithm.fullscreenColumnCoversMonitor(COL))
+                            TARGET->layoutBox = MONBOX;
+                        else {
+                            TARGET->layoutBox = controller->calculateStripBox(i, USABLE, WORKAREA.pos(), *PFSONONE);
+                            if (controller->isPrimaryHorizontal()) {
+                                TARGET->layoutBox.y = MONBOX.y;
+                                TARGET->layoutBox.h = MONBOX.h;
+                            } else {
+                                TARGET->layoutBox.x = MONBOX.x;
+                                TARGET->layoutBox.w = MONBOX.w;
+                            }
                         }
                     }
                 } else
@@ -833,12 +835,16 @@ void CScrollingAlgorithm::syncFullscreenTargets() {
         ++it;
     }
 
-    // Maximised (mode = FSMODE_MAXIMIZED)
     for (auto it = m_fullscreenTargets.begin(); it != m_fullscreenTargets.end();) {
         const auto TARGET = (*it)->target.lock();
 
-        if (!TARGET || !TARGET->layoutManagedFullscreen() || TARGET->fullscreenMode() != FSMODE_MAXIMIZED || TARGET->space() != m_parent->space()) {
+        if (!TARGET || !TARGET->layoutManagedFullscreen() || TARGET->space() != m_parent->space()) {
             it = m_fullscreenTargets.erase(it);
+            continue;
+        }
+
+        if (TARGET->fullscreenMode() != FSMODE_MAXIMIZED) {
+            ++it;
             continue;
         }
 
@@ -928,9 +934,8 @@ eFullscreenRequestResult CScrollingAlgorithm::requestFullscreen(const SFullscree
         auto  it            = std::ranges::find_if(m_fullscreenTargets, [&](const auto& state) { return state->target == request.target; });
 
         if (it != m_fullscreenTargets.end()) {
-            if ((*it)->restoreColumnWidth.has_value()) {
+            if ((*it)->restoreColumnWidth.has_value())
                 originalWidth = (*it)->restoreColumnWidth.value();
-            }
         }
 
         clearFullscreenTarget(request.target);

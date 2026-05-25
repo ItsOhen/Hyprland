@@ -233,6 +233,10 @@ double CScrollTapeController::calculateCameraOffset(const CBox& usableArea, bool
     if (maxExtent > usablePrimary && m_offset < 0.0 && *PFITMETHOD != 0)
         setOffset(0.0);
 
+    // clamp the right side so content doesn't end before the viewport edge
+    if (maxExtent > usablePrimary && m_offset > maxExtent - usablePrimary)
+        setOffset(maxExtent - usablePrimary);
+
     return m_offset;
 }
 
