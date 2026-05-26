@@ -8,6 +8,7 @@
 #include "../../../desktop/state/FocusState.hpp"
 #include "../../../managers/TokenManager.hpp"
 #include "../../../helpers/Monitor.hpp"
+#include "../../../helpers/MiscFunctions.hpp"
 
 #include <hyprutils/string/String.hpp>
 #include <chrono>
@@ -18,6 +19,36 @@ using namespace Hyprutils::String;
 UP<CExecutor>& Config::Supplementary::executor() {
     static UP<CExecutor> p = makeUnique<CExecutor>();
     return p;
+}
+
+static PHLWORKSPACE ensureWorkspace(const std::string& str) {
+    auto result = getWorkspaceIDNameFromString(str);
+    if (result.id == WORKSPACE_INVALID)
+        return nullptr;
+
+    auto ws = g_pCompositor->getWorkspaceByID(result.id);
+    if (!ws) {
+        const auto PMONITOR = Desktop::focusState()->monitor();
+        if (!PMONITOR)
+            return nullptr;
+        ws = g_pCompositor->createNewWorkspace(result.id, PMONITOR->m_id, result.name, false);
+    }
+    return ws;
+}
+
+static PHLWORKSPACE extractWorkspaceFromRule(SP<Desktop::Rule::CWindowRule> rule) {
+    if (!rule)
+        return nullptr;
+
+    for (const auto& effect : rule->effects()) {
+        if (effect.key == Desktop::Rule::WINDOW_RULE_EFFECT_WORKSPACE) {
+            const auto& wsStr = std::get<std::string>(effect.value);
+            // wsStr might be "2 silent" - extract just the workspace part
+            size_t space = wsStr.find(' ');
+            return ensureWorkspace(space == std::string::npos ? wsStr : wsStr.substr(0, space));
+        }
+    }
+    return nullptr;
 }
 
 CExecutor::CExecutor() {
@@ -89,12 +120,14 @@ std::optional<uint64_t> CExecutor::spawn(const std::string& args) {
 }
 
 std::optional<uint64_t> CExecutor::spawn(const SExecRequest& args) {
-    auto res = spawn(args.exec);
-
     if (!args.rule)
-        return res;
+        return spawn(args.exec);
 
     const auto TOKEN = g_pTokenManager->registerNewToken(nullptr, std::chrono::seconds(1));
+
+    const auto WORKSPACE = extractWorkspaceFromRule(args.rule);
+
+    auto res = spawnRawProc(args.exec, WORKSPACE, TOKEN);
 
     applyRuleToProc(args.rule, *res, TOKEN);
 
@@ -131,7 +164,8 @@ std::optional<uint64_t> CExecutor::spawnWithRules(std::string args, PHLWORKSPACE
 
         const auto TOKEN = g_pTokenManager->registerNewToken(nullptr, std::chrono::seconds(1));
 
-        const auto PROC = spawnRawProc(args, pInitialWorkspace, TOKEN);
+        const auto WORKSPACE = extractWorkspaceFromRule(*rule);
+        const auto PROC      = spawnRawProc(args, WORKSPACE ? WORKSPACE : pInitialWorkspace, TOKEN);
 
         if (!PROC)
             return std::nullopt;
