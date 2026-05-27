@@ -519,6 +519,18 @@ static SDispatchResult setPointerFocusLayer(std::string in) {
     return {.success = false, .error = std::format("No layer with namespace '{}'", in)};
 }
 
+static SDispatchResult softFocusWindowByClass(std::string in) {
+    for (const auto& window : g_pCompositor->m_windows) {
+        if (window->m_class != in)
+            continue;
+
+        Desktop::focusState()->rawWindowFocus(window, Desktop::FOCUS_REASON_FFM);
+        return {};
+    }
+
+    return {.success = false, .error = std::format("No window with class '{}'", in)};
+}
+
 static SDispatchResult floatingFocusOnFullscreen(std::string in) {
     const auto PLASTWINDOW = Desktop::focusState()->window();
 
