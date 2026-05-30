@@ -54,6 +54,7 @@ namespace Layout::Tiled {
         void                     setOffset(double offset);
         double                   getOffset() const;
         void                     adjustOffset(double delta);
+        void                     setSkipCameraValidation(bool v);
         struct SScrollInhibitor& getScrollInhibitor();
 
         double                   calculateMaxExtent(const CBox& usableArea, bool fullscreenOnOne = false) const;
@@ -78,6 +79,7 @@ namespace Layout::Tiled {
         std::vector<SP<SStripData>> m_strips;
         double                      m_offset = 0.0;
         struct SScrollInhibitor     m_scrollInhibitor; // for inhibiting scrolling (prevents the viewport from moving)
+        bool                        m_skipCameraValidation = false;
 
         double                      getPrimary(const Vector2D& v) const;
         double                      getSecondary(const Vector2D& v) const;

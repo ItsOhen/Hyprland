@@ -316,7 +316,18 @@ SP<SColumnData> SScrollingData::prev(SP<SColumnData> c) {
 }
 
 void SScrollingData::centerCol(SP<SColumnData> c) {
-    centerOrFitCol(c, false);
+    if (!c)
+        return;
+
+    static const auto PFSONONE = CConfigValue<Config::INTEGER>("scrolling:fullscreen_on_one_column");
+
+    const auto USABLE = algorithm.usableArea();
+    int64_t    colIdx = idx(c);
+
+    if (colIdx < 0)
+        return;
+
+    controller->centerStrip(colIdx, USABLE, *PFSONONE);
 }
 
 void SScrollingData::fitCol(SP<SColumnData> c) {
@@ -569,6 +580,8 @@ void CScrollingAlgorithm::focusOnInput(SP<ITarget> target, eInputMode input) {
     const auto TARGETDATA = dataFor(target);
     if (!TARGETDATA)
         return;
+
+    m_scrollingData->controller->setSkipCameraValidation(false);
 
     if (*PFOLLOW_FOCUS_MIN_PERC > 0.F && input == INPUT_MODE_SOFT) {
         // check how much of the window is visible, unless hard input focus
@@ -1672,7 +1685,10 @@ Config::ErrorResult CScrollingAlgorithm::layoutMsg(const std::string_view& sv) {
         if (!CURRENT_COL)
             return stateErr("no current col");
 
+        Log::logger->log(Log::ERR, "centering column");
+
         m_scrollingData->centerCol(CURRENT_COL);
+        m_scrollingData->controller->setSkipCameraValidation(true);
         m_scrollingData->recalculate();
     } else if (ARGS[0] == "inhibit_scroll") {
         if (ARGS.size() > 2)
@@ -1691,6 +1707,7 @@ void CScrollingAlgorithm::moveTape(float delta) {
     if (delta == 0.F)
         return;
 
+    m_scrollingData->controller->setSkipCameraValidation(false);
     m_scrollingData->controller->adjustOffset(-delta);
     m_scrollingData->recalculate();
 }
@@ -1700,6 +1717,7 @@ void CScrollingAlgorithm::moveTapeNormalized(double delta) {
     if (primary <= 0.0 || delta == 0.0)
         return;
 
+    m_scrollingData->controller->setSkipCameraValidation(false);
     moveTape(delta * primary);
 }
 
@@ -1713,6 +1731,8 @@ SP<SColumnData> CScrollingAlgorithm::snapToProjectedOffset(double projectedNorma
 
     const auto        USABLE     = usableArea();
     auto&             controller = *m_scrollingData->controller;
+
+    controller.setSkipCameraValidation(false);
 
     if (controller.stripCount() == 0)
         return nullptr;

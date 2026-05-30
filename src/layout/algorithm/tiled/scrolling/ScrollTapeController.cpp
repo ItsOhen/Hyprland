@@ -50,6 +50,10 @@ void CScrollTapeController::adjustOffset(double delta) {
     m_offset += delta;
 }
 
+void CScrollTapeController::setSkipCameraValidation(bool v) {
+    m_skipCameraValidation = v;
+}
+
 struct SScrollInhibitor& CScrollTapeController::getScrollInhibitor() {
     return m_scrollInhibitor;
 }
@@ -220,8 +224,8 @@ double CScrollTapeController::calculateCameraOffset(const CBox& usableArea, bool
     const double maxExtent     = calculateMaxExtent(usableArea, fullscreenOnOne);
     const double usablePrimary = getPrimary(usableArea.size());
 
-    // don't adjust the offset if we are dragging
-    if (isBeingDragged())
+    // don't adjust the offset if we are dragging or if it was explicitly set by a user command
+    if (isBeingDragged() || m_skipCameraValidation)
         return m_offset;
 
     // if the content fits in viewport, center it
