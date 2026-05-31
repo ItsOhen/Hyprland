@@ -144,11 +144,8 @@ static int safeLuaRequire(lua_State* L) {
     }
 
     if (auto* mgr = CConfigManager::fromLuaState(L); mgr) {
-        if (!moduleName.empty()) {
+        if (!moduleName.empty())
             trackRequiredLuaModulePath(L, mgr, moduleName);
-            mgr->addError(std::format("require(\"{}\"): {}", moduleName, err));
-        } else
-            mgr->addError(std::format("require: {}", err));
     }
 
     lua_pop(L, 1);
