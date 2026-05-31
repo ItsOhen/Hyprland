@@ -48,6 +48,7 @@ namespace ErrorOverlay {
         float                      m_lastHeight = 0.F;
 
         bool                       m_monitorChanged = false;
+        bool                       m_pendingCreate  = false;
     };
 
     UP<COverlay>& overlay();
