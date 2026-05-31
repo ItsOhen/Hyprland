@@ -130,7 +130,8 @@ void CReloadPipeline::phaseExecute(SReloadContext& ctx) {
     int         nargs  = (ctx.scope != eReloadScope::FULL && !ctx.moduleName.empty()) ? 1 : 0;
 
     if (m_mgr->guardedPCall(nargs, 0, 1, CConfigManager::LUA_TIMEOUT_CONFIG_RELOAD_MS, logMsg) != LUA_OK) {
-        m_mgr->addError(lua_tostring(m_mgr->m_lua, -1));
+        std::string error = lua_tostring(m_mgr->m_lua, -1);
+            m_mgr->addError(std::format("Module failed to compile: {}, probably a good time to do a full reload.\n{}", ctx.filePath, std::move(error)));
         lua_pop(m_mgr->m_lua, 1);
         if (ctx.scope == eReloadScope::FULL)
             m_mgr->m_lastConfigVerificationWasSuccessful = false;
