@@ -802,7 +802,8 @@ SDispatchResult CKeybindManager::handleKeybinds(const uint32_t modmask, const SP
             // call the dispatcher
             Log::logger->log(Log::DEBUG, "Keybind triggered, calling dispatcher ({}, {}, {}, {})", modmask, key.keyName, key.keysym, DISPATCHER->first);
 
-            Config::Actions::state()->m_passPressed = sc<int>(pressed);
+            if (k->handler != "__lua")
+                Config::Actions::state()->m_passPressed = sc<int>(pressed);
 
             // if the dispatchers says to pass event then we will
             if (k->handler == "mouse")
@@ -810,7 +811,8 @@ SDispatchResult CKeybindManager::handleKeybinds(const uint32_t modmask, const SP
             else
                 res = DISPATCHER->second(k->arg);
 
-            Config::Actions::state()->m_passPressed = -1;
+            if (k->handler != "__lua")
+                Config::Actions::state()->m_passPressed = -1;
 
             if (!res.success && !res.error.empty()) {
                 Log::logger->log(Log::ERR, "[Lua] Dispatcher error: {}", res.error);

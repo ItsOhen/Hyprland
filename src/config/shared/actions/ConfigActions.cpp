@@ -1726,7 +1726,7 @@ ActionResult Actions::global(const std::string& action) {
 }
 
 ActionResult Actions::mouse(const std::string& action) {
-    const bool PRESSED = Config::Actions::state()->m_passPressed == 1;
+    const bool PRESSED = Config::Actions::state()->m_passPressed != 0;
 
     if (!PRESSED)
         return SActionResult{.passEvent = CKeybindManager::changeMouseBindMode(MBIND_INVALID).passEvent};
