@@ -18,20 +18,25 @@ using namespace Config::Lua;
 CReloadPipeline::CReloadPipeline(CConfigManager* mgr) : m_mgr(mgr) {}
 
 void CReloadPipeline::execute(SReloadContext& ctx) {
-    if (ctx.scope == eReloadScope::FULL)
-    {
-      phaseClearState();
-    }
     phaseEnter(ctx);
     phaseLoad(ctx);
     if (!ctx.syntaxCheckOk)
+    {
+        m_mgr->postConfigReload();
         return;
+    }
+
+    if (ctx.scope == eReloadScope::FULL)
+    {
+        phaseClearState();
+    }
 
     phaseExecute(ctx);
     phaseFinalize(ctx);
 }
 
 void CReloadPipeline::phaseEnter(SReloadContext& ctx) {
+      Log::logger->log(Log::LUA, "[{}@{}]: == Enter == with scope {}", std::filesystem::path(ctx.filePath).filename().string(), ctx.newGen, ctx.scope == eReloadScope::FULL ? "full" : "module");
     if (ctx.scope == eReloadScope::FULL) {
         m_mgr->m_configPaths.clear();
         m_mgr->m_dependencyGraph->clear();
@@ -54,7 +59,7 @@ void CReloadPipeline::phaseEnter(SReloadContext& ctx) {
 
 void CReloadPipeline::phaseLoad(SReloadContext& ctx) {
     m_mgr->pushLuaTracebackHandler();
-
+    Log::logger->log(Log::LUA, "[{}@{}]: == Load == with scope {}", std::filesystem::path(ctx.filePath).filename().string(), ctx.newGen, ctx.scope == eReloadScope::FULL ? "full" : "module");
     if (ctx.scope == eReloadScope::FULL) {
         lua_getglobal(m_mgr->m_lua, "package");
         lua_getfield(m_mgr->m_lua, -1, "loaded");
@@ -100,7 +105,6 @@ void CReloadPipeline::phaseLoad(SReloadContext& ctx) {
 }
 
 void CReloadPipeline::phaseClearState() {
-    m_mgr->m_errors.clear();
     Config::animationTree()->reset();
     Config::workspaceRuleMgr()->clear();
     Config::monitorRuleMgr()->clear();
