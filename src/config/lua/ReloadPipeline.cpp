@@ -18,13 +18,14 @@ using namespace Config::Lua;
 CReloadPipeline::CReloadPipeline(CConfigManager* mgr) : m_mgr(mgr) {}
 
 void CReloadPipeline::execute(SReloadContext& ctx) {
+    if (ctx.scope == eReloadScope::FULL)
+    {
+      phaseClearState();
+    }
     phaseEnter(ctx);
     phaseLoad(ctx);
     if (!ctx.syntaxCheckOk)
         return;
-
-    if (ctx.scope == eReloadScope::FULL)
-        phaseClearState();
 
     phaseExecute(ctx);
     phaseFinalize(ctx);
@@ -99,6 +100,7 @@ void CReloadPipeline::phaseLoad(SReloadContext& ctx) {
 }
 
 void CReloadPipeline::phaseClearState() {
+    m_mgr->m_errors.clear();
     Config::animationTree()->reset();
     Config::workspaceRuleMgr()->clear();
     Config::monitorRuleMgr()->clear();
