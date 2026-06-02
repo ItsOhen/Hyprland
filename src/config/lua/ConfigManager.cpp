@@ -536,10 +536,10 @@ void CConfigManager::reloadModule(const std::string& filePath, std::unordered_se
 }
 
 void CConfigManager::sweepStaleRegistrations() {
-    size_t              totalStale  = 0;
-    static auto         PDUMPRULES  = CConfigValue<Config::INTEGER>("debug.dump_rules");
+    size_t      totalStale = 0;
+    static auto PDUMPRULES = CConfigValue<Config::INTEGER>("debug.dump_rules");
 
-    auto   getFileGen = [&](const std::string& path) -> uint64_t {
+    auto        getFileGen = [&](const std::string& path) -> uint64_t {
         auto it = m_fileGenerations.find(path);
         return it != m_fileGenerations.end() ? it->second : 0;
     };
@@ -707,8 +707,8 @@ void CConfigManager::sweepStaleRegistrations() {
         if (*PDUMPRULES) {
             Log::logger->log(Log::LUA, "[dump-rules]: ===== {} keybind(s) =====", g_pKeybindManager->m_keybinds.size());
             for (auto& kb : g_pKeybindManager->m_keybinds) {
-                Log::logger->log(Log::LUA, "[dump-rules]:   kb \"{}\" mod={:x} handler={} submap=\"{}\" arg={}", kb->displayKey, kb->modmask, kb->handler,
-                                 kb->submap.name, kb->arg);
+                Log::logger->log(Log::LUA, "[dump-rules]:   kb \"{}\" mod={:x} handler={} submap=\"{}\" arg={}", kb->displayKey, kb->modmask, kb->handler, kb->submap.name,
+                                 kb->arg);
             }
         }
     }
@@ -802,8 +802,8 @@ void CConfigManager::sweepStaleRegistrations() {
 
             Log::logger->log(Log::LUA, "[dump-rules]: ===== {} Lua window rule(s) =====", m_luaWindowRules.size());
             for (auto& [name, rule] : m_luaWindowRules) {
-                auto it = m_luaWindowRuleGen.find(name);
-                uint64_t gen = (it != m_luaWindowRuleGen.end()) ? it->second.generation : 0;
+                auto        it     = m_luaWindowRuleGen.find(name);
+                uint64_t    gen    = (it != m_luaWindowRuleGen.end()) ? it->second.generation : 0;
                 std::string genStr = (it != m_luaWindowRuleGen.end()) ? std::to_string(gen) + " (" + it->second.sourcePath + ")" : "no-gen";
 
                 std::string effects;
@@ -858,18 +858,18 @@ void CConfigManager::postConfigReload() {
     if (emergencyModeTripped)
         luaL_dostring(m_lua, EMERGENCY_PCALL);
 
-// parseError will be displayed next frame
+    // parseError will be displayed next frame
     if (!m_errors.empty() && !*PSUPPRESSERRORS) {
         Log::logger->log(Log::DEBUG, "=== START ERROR MAP DUMP (Map Size: {}) ===", m_errors.size());
-        
+
         for (const auto& [modulePath, errorVector] : m_errors) {
             Log::logger->log(Log::DEBUG, "  Module: '{}' (Vector Size: {})", modulePath, errorVector.size());
-            
+
             for (size_t i = 0; i < errorVector.size(); ++i) {
                 Log::logger->log(Log::DEBUG, "    [{}] -> \"{}\"", i, errorVector[i]);
             }
         }
-        
+
         Log::logger->log(Log::DEBUG, "=== END ERROR MAP DUMP ===");
 
         Log::logger->log(Log::DEBUG, "OVERLAY DEBUG: Calling queueCreate with {} errors", m_errors.size());
@@ -914,7 +914,7 @@ void CConfigManager::postConfigReload() {
             Log::logger->log(Log::DEBUG, "  Lingering Key: '{}' (Vector Size: {})", modulePath, errorVector.size());
         }
         Log::logger->log(Log::DEBUG, "=============================================");
-        
+
         ErrorOverlay::overlay()->destroy();
     }
 

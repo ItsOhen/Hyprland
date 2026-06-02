@@ -164,10 +164,10 @@ void COverlay::createQueued() {
 
     m_borderGradient = m_queuedBorderGradient;
 
-    m_isCreated      = true;
-    m_pendingCreate  = false;
-    m_queuedDestroy  = false;
-    m_queued         = "";
+    m_isCreated     = true;
+    m_pendingCreate = false;
+    m_queuedDestroy = false;
+    m_queued        = "";
 
     g_pHyprRenderer->damageMonitor(PMONITOR);
 

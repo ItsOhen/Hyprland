@@ -1933,56 +1933,56 @@ void CWindow::mapWindow() {
     m_initialTitle  = m_title;
     m_initialClass  = fetchClass();
 
-     // check for token
-     std::string requestedWorkspace = "";
-     bool        workspaceSilent    = false;
+    // check for token
+    std::string requestedWorkspace = "";
+    bool        workspaceSilent    = false;
 
-     bool        monitorSilent = false;
+    bool        monitorSilent = false;
 
-     // If this is a child window and we have initial workspace tracking enabled,
-     // inherit parent's workspace if no token is present
-     if (*PINITIALWSTRACKING && !isX11OverrideRedirect()) {
-         const auto PARENT = parent();
-         if (PARENT && PARENT->m_workspace && m_initialWorkspaceToken.empty()) {
-             const auto WINDOWENV = getEnv();
-             if (!WINDOWENV.contains("HL_INITIAL_WORKSPACE_TOKEN")) {
-                 Log::logger->log(Log::DEBUG, "Child window inheriting parent workspace: {}", PARENT->m_workspace->m_name);
-                 m_workspace = PARENT->m_workspace;
-                 workspaceSilent = true;
-             }
-         }
-     }
+    // If this is a child window and we have initial workspace tracking enabled,
+    // inherit parent's workspace if no token is present
+    if (*PINITIALWSTRACKING && !isX11OverrideRedirect()) {
+        const auto PARENT = parent();
+        if (PARENT && PARENT->m_workspace && m_initialWorkspaceToken.empty()) {
+            const auto WINDOWENV = getEnv();
+            if (!WINDOWENV.contains("HL_INITIAL_WORKSPACE_TOKEN")) {
+                Log::logger->log(Log::DEBUG, "Child window inheriting parent workspace: {}", PARENT->m_workspace->m_name);
+                m_workspace     = PARENT->m_workspace;
+                workspaceSilent = true;
+            }
+        }
+    }
 
-     if (*PINITIALWSTRACKING) {
-         const auto WINDOWENV = getEnv();
-         if (WINDOWENV.contains("HL_INITIAL_WORKSPACE_TOKEN")) {
-             const auto SZTOKEN = WINDOWENV.at("HL_INITIAL_WORKSPACE_TOKEN");
-             Log::logger->log(Log::DEBUG, "New window contains HL_INITIAL_WORKSPACE_TOKEN: {}", SZTOKEN);
-             const auto TOKEN = g_pTokenManager->getToken(SZTOKEN);
-             if (TOKEN) {
-                 // find workspace and use it
-                 Desktop::View::SInitialWorkspaceToken WS = std::any_cast<Desktop::View::SInitialWorkspaceToken>(TOKEN->m_data);
+    if (*PINITIALWSTRACKING) {
+        const auto WINDOWENV = getEnv();
+        if (WINDOWENV.contains("HL_INITIAL_WORKSPACE_TOKEN")) {
+            const auto SZTOKEN = WINDOWENV.at("HL_INITIAL_WORKSPACE_TOKEN");
+            Log::logger->log(Log::DEBUG, "New window contains HL_INITIAL_WORKSPACE_TOKEN: {}", SZTOKEN);
+            const auto TOKEN = g_pTokenManager->getToken(SZTOKEN);
+            if (TOKEN) {
+                // find workspace and use it
+                Desktop::View::SInitialWorkspaceToken WS = std::any_cast<Desktop::View::SInitialWorkspaceToken>(TOKEN->m_data);
 
-                 Log::logger->log(Log::DEBUG, "HL_INITIAL_WORKSPACE_TOKEN {} -> {}", SZTOKEN, WS.workspace);
+                Log::logger->log(Log::DEBUG, "HL_INITIAL_WORKSPACE_TOKEN {} -> {}", SZTOKEN, WS.workspace);
 
-                 if (g_pCompositor->getWorkspaceByString(WS.workspace) != m_workspace) {
-                     requestedWorkspace = WS.workspace;
-                     workspaceSilent    = true;
-                 }
+                if (g_pCompositor->getWorkspaceByString(WS.workspace) != m_workspace) {
+                    requestedWorkspace = WS.workspace;
+                    workspaceSilent    = true;
+                }
 
-                 if (*PINITIALWSTRACKING == 1) // one-shot token
-                     g_pTokenManager->removeToken(TOKEN);
-                 else if (*PINITIALWSTRACKING == 2) { // persistent
-                     if (WS.primaryOwner.expired()) {
-                         WS.primaryOwner = m_self.lock();
-                         TOKEN->m_data   = WS;
-                     }
+                if (*PINITIALWSTRACKING == 1) // one-shot token
+                    g_pTokenManager->removeToken(TOKEN);
+                else if (*PINITIALWSTRACKING == 2) { // persistent
+                    if (WS.primaryOwner.expired()) {
+                        WS.primaryOwner = m_self.lock();
+                        TOKEN->m_data   = WS;
+                    }
 
-                     m_initialWorkspaceToken = SZTOKEN;
-                 }
-             }
-         }
-     }
+                    m_initialWorkspaceToken = SZTOKEN;
+                }
+            }
+        }
+    }
 
     if (g_pInputManager->m_lastFocusOnLS) // waybar fix
         g_pInputManager->releaseAllMouseButtons();

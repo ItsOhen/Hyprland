@@ -127,7 +127,7 @@ std::optional<uint64_t> CExecutor::spawn(const SExecRequest& args) {
 
     const auto WORKSPACE = extractWorkspaceFromRule(args.rule);
 
-    auto res = spawnRawProc(args.exec, WORKSPACE, TOKEN);
+    auto       res = spawnRawProc(args.exec, WORKSPACE, TOKEN);
 
     applyRuleToProc(args.rule, *res, TOKEN);
 

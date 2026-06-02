@@ -321,8 +321,8 @@ void SScrollingData::centerCol(SP<SColumnData> c) {
 
     static const auto PFSONONE = CConfigValue<Config::INTEGER>("scrolling:fullscreen_on_one_column");
 
-    const auto USABLE = algorithm.usableArea();
-    int64_t    colIdx = idx(c);
+    const auto        USABLE = algorithm.usableArea();
+    int64_t           colIdx = idx(c);
 
     if (colIdx < 0)
         return;

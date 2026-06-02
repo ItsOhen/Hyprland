@@ -20,14 +20,12 @@ CReloadPipeline::CReloadPipeline(CConfigManager* mgr) : m_mgr(mgr) {}
 void CReloadPipeline::execute(SReloadContext& ctx) {
     phaseEnter(ctx);
     phaseLoad(ctx);
-    if (!ctx.syntaxCheckOk)
-    {
+    if (!ctx.syntaxCheckOk) {
         m_mgr->postConfigReload();
         return;
     }
 
-    if (ctx.scope == eReloadScope::FULL)
-    {
+    if (ctx.scope == eReloadScope::FULL) {
         phaseClearState();
     }
 
@@ -36,7 +34,8 @@ void CReloadPipeline::execute(SReloadContext& ctx) {
 }
 
 void CReloadPipeline::phaseEnter(SReloadContext& ctx) {
-      Log::logger->log(Log::LUA, "[{}@{}]: == Enter == with scope {}", std::filesystem::path(ctx.filePath).filename().string(), ctx.newGen, ctx.scope == eReloadScope::FULL ? "full" : "module");
+    Log::logger->log(Log::LUA, "[{}@{}]: == Enter == with scope {}", std::filesystem::path(ctx.filePath).filename().string(), ctx.newGen,
+                     ctx.scope == eReloadScope::FULL ? "full" : "module");
     if (ctx.scope == eReloadScope::FULL) {
         m_mgr->m_configPaths.clear();
         m_mgr->m_dependencyGraph->clear();
@@ -59,7 +58,8 @@ void CReloadPipeline::phaseEnter(SReloadContext& ctx) {
 
 void CReloadPipeline::phaseLoad(SReloadContext& ctx) {
     m_mgr->pushLuaTracebackHandler();
-    Log::logger->log(Log::LUA, "[{}@{}]: == Load == with scope {}", std::filesystem::path(ctx.filePath).filename().string(), ctx.newGen, ctx.scope == eReloadScope::FULL ? "full" : "module");
+    Log::logger->log(Log::LUA, "[{}@{}]: == Load == with scope {}", std::filesystem::path(ctx.filePath).filename().string(), ctx.newGen,
+                     ctx.scope == eReloadScope::FULL ? "full" : "module");
     if (ctx.scope == eReloadScope::FULL) {
         lua_getglobal(m_mgr->m_lua, "package");
         lua_getfield(m_mgr->m_lua, -1, "loaded");
@@ -137,7 +137,7 @@ void CReloadPipeline::phaseExecute(SReloadContext& ctx) {
 
     if (m_mgr->guardedPCall(nargs, 0, 1, CConfigManager::LUA_TIMEOUT_CONFIG_RELOAD_MS, logMsg) != LUA_OK) {
         std::string error = lua_tostring(m_mgr->m_lua, -1);
-            m_mgr->addError(std::format("Module failed to compile: {}, probably a good time to do a full reload.\n{}", ctx.filePath, std::move(error)));
+        m_mgr->addError(std::format("Module failed to compile: {}, probably a good time to do a full reload.\n{}", ctx.filePath, std::move(error)));
         lua_pop(m_mgr->m_lua, 1);
         if (ctx.scope == eReloadScope::FULL)
             m_mgr->m_lastConfigVerificationWasSuccessful = false;
