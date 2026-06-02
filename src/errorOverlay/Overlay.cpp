@@ -6,7 +6,6 @@
 #include "../event/EventBus.hpp"
 #include "../managers/animation/AnimationManager.hpp"
 #include "../render/Renderer.hpp"
-#include "../layout/LayoutManager.hpp"
 #include "../render/pass/BorderPassElement.hpp"
 #include "../render/pass/RectPassElement.hpp"
 #include "../render/pass/TexPassElement.hpp"
@@ -74,17 +73,6 @@ COverlay::COverlay() {
         if (m_fadeOpacity->isBeingAnimated() || m_monitorChanged)
             g_pHyprRenderer->damageBox(m_damageBox);
     });
-
-    static auto P3 = Event::bus()->m_events.monitor.layoutChanged.listen([&]() {
-        if (!m_isCreated || m_queued.empty())
-            return;
-
-        m_pendingCreate = true;
-
-        const auto PMONITOR = Desktop::focusState()->monitor();
-        if (PMONITOR)
-            g_pHyprRenderer->damageMonitor(PMONITOR);
-    });
 }
 
 void COverlay::queueCreate(std::string message, const CHyprColor& color) {
@@ -99,12 +87,6 @@ void COverlay::queueCreate(std::string message, const Config::CGradientValueData
         m_queuedBorderGradient.reset(CHyprColor(1.0, 50.0 / 255.0, 50.0 / 255.0, 1.0));
     else
         m_queuedBorderGradient.updateColorsOk();
-
-    m_pendingCreate = true;
-
-    const auto PMONITOR = Desktop::focusState()->monitor();
-    if (PMONITOR)
-        g_pHyprRenderer->damageMonitor(PMONITOR);
 }
 
 void COverlay::queueError(std::string err) {
@@ -164,9 +146,9 @@ void COverlay::createQueued() {
 
     m_borderGradient = m_queuedBorderGradient;
 
-    m_isCreated      = true;
-    m_pendingCreate  = false;
-    m_queuedDestroy  = false;
+    m_isCreated     = true;
+    m_queued        = "";
+    m_queuedDestroy = false;
 
     g_pHyprRenderer->damageMonitor(PMONITOR);
 
@@ -179,13 +161,12 @@ void COverlay::createQueued() {
 
     for (const auto& m : g_pCompositor->m_monitors) {
         g_pHyprRenderer->arrangeLayersForMonitor(m->m_id);
-        g_layoutManager->recalculateMonitor(m);
     }
 }
 
 void COverlay::draw() {
-    if (!m_isCreated || m_pendingCreate) {
-        if (m_pendingCreate)
+    if (!m_isCreated || !m_queued.empty()) {
+        if (!m_queued.empty())
             createQueued();
         return;
     }
@@ -203,7 +184,6 @@ void COverlay::draw() {
 
                 for (auto& m : g_pCompositor->m_monitors) {
                     g_pHyprRenderer->arrangeLayersForMonitor(m->m_id);
-                    g_layoutManager->recalculateMonitor(m);
                     m->m_reservedArea.resetType(Desktop::RESERVED_DYNAMIC_TYPE_ERROR_BAR);
                 }
 
@@ -267,10 +247,8 @@ void COverlay::draw() {
 void COverlay::destroy() {
     if (m_isCreated)
         m_queuedDestroy = true;
-    else {
-        m_queued        = "";
-        m_pendingCreate = false;
-    }
+    else
+        m_queued = "";
 }
 
 bool COverlay::active() {
