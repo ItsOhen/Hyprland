@@ -474,6 +474,7 @@ std::vector<SP<IValue>> Values::getConfigValues() {
         MS<Bool>("misc:disable_hyprland_logo", "disables the random Hyprland logo / anime girl background. :(", false),
         MS<Bool>("misc:disable_splash_rendering", "disables the Hyprland splash rendering.", false),
         MS<Color>("misc:col.splash", "Changes the color of the splash text.", 0x55ffffff),
+        MS<Int>("misc:splash_font_size", "Changes the font size of the splash text.", 16),
         MS<String>("misc:font_family", "Set the global default font to render the text.", "Sans"),
         MS<String>("misc:splash_font_family", "Changes the font used to render the splash text.", "[[EMPTY]]"),
         MS<Int>("misc:force_default_wallpaper", "Force any of the 3 default wallpapers. [-1/0/1/2]", -1, {.min = -1, .max = 2}),

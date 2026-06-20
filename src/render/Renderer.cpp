@@ -1353,6 +1353,7 @@ void IHyprRenderer::renderBackground(PHLMONITOR pMonitor) {
     static auto PRENDERTEX       = CConfigValue<Config::INTEGER>("misc:disable_hyprland_logo");
     static auto PBACKGROUNDCOLOR = CConfigValue<Config::INTEGER>("misc:background_color");
     static auto PNOSPLASH        = CConfigValue<Config::INTEGER>("misc:disable_splash_rendering");
+    static auto PSPLASHFONTSIZE  = CConfigValue<Config::INTEGER>("misc:splash_font_size");
 
     if (*PRENDERTEX /* inverted cfg flag */ || pMonitor->m_backgroundOpacity->isBeingAnimated())
         m_renderPass.add(makeUnique<CClearPassElement>(CClearPassElement::SClearData{CHyprColor(*PBACKGROUNDCOLOR)}));
@@ -1392,8 +1393,11 @@ void IHyprRenderer::renderBackground(PHLMONITOR pMonitor) {
 
     if (!*PNOSPLASH) {
         auto monitorSize = pMonitor->m_transformedSize;
+        int  fontSize    = *PSPLASHFONTSIZE > 0 ? *PSPLASHFONTSIZE : monitorSize.y / 76;
+
         if (!pMonitor->m_splash)
-            pMonitor->m_splash = renderSplash([this, pMonitor](auto width, auto height, const auto DATA) { return createTexture(width, height, DATA); }, monitorSize.y / 76,
+            pMonitor->m_splash = renderSplash([this, pMonitor](auto width, auto height, const auto DATA) { return createTexture(width, height, DATA); },
+                                              fontSize,
                                               monitorSize.x, monitorSize.y);
 
         if (pMonitor->m_splash) {
@@ -3446,6 +3450,7 @@ SP<ITexture> IHyprRenderer::renderSplash(const std::function<SP<ITexture>(const 
     pango_font_description_set_style(pangoFD, PANGO_STYLE_NORMAL);
     pango_font_description_set_weight(pangoFD, PANGO_WEIGHT_NORMAL);
     pango_layout_set_font_description(layoutText, pangoFD);
+    pango_cairo_update_layout(CAIRO, layoutText);
 
     cairo_set_source_rgba(CAIRO, COLOR.r, COLOR.g, COLOR.b, COLOR.a);
     int textW = 0, textH = 0;
