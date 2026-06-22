@@ -805,6 +805,8 @@ SDispatchResult CKeybindManager::handleKeybinds(const uint32_t modmask, const SP
             if (k->handler != "__lua")
                 Config::Actions::state()->m_passPressed = sc<int>(pressed);
 
+            auto submapBefore = Config::Actions::state()->m_currentSubmap;
+
             // if the dispatchers says to pass event then we will
             if (k->handler == "mouse")
                 res = DISPATCHER->second((pressed ? "1" : "0") + k->arg);
@@ -823,9 +825,12 @@ SDispatchResult CKeybindManager::handleKeybinds(const uint32_t modmask, const SP
                 break;
             }
             if (k->handler != "submap" && !k->submap.reset.empty()) {
-                auto result = Config::Actions::setSubmap(k->submap.reset);
-                if (!result.has_value()) {
-                    Log::logger->log(Log::ERR, "Failed to reset submap to '{}': {}", k->submap.reset, result.error().message);
+                auto submapAfter = Config::Actions::state()->m_currentSubmap;
+                if (submapBefore == submapAfter || k->handler != "__lua") {
+                    auto result = Config::Actions::setSubmap(k->submap.reset);
+                    if (!result.has_value()) {
+                        Log::logger->log(Log::ERR, "Failed to reset submap to '{}': {}", k->submap.reset, result.error().message);
+                    }
                 }
             }
         }
